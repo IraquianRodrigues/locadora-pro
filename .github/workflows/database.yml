@@ -1,0 +1,53 @@
+name: Banco Supabase
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.121.0
+      - run: supabase start
+      - run: supabase db reset --local
+      - run: supabase db lint --local --level error
+      - run: npm run test:db:supabase
+      - name: Preparar conexão local sem expor chaves nos logs
+        run: |
+          mkdir -p .database-tests
+          supabase status -o env > .database-tests/local.env
+      - name: Exercitar SQL completo no PostgreSQL 17 local
+        env:
+          E2E_LOCAL_DISPOSABLE: "yes"
+        run: node scripts/test-local-supabase.mjs
+      - name: Preparar usuários Auth fictícios da stack local
+        env:
+          E2E_LOCAL_DISPOSABLE: "yes"
+        run: node scripts/bootstrap-local-e2e.mjs
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:supabase:http
+      - name: Gerar tipos do schema aplicado
+        run: |
+          mkdir -p .database-tests
+          supabase gen types typescript --local --schema public > .database-tests/database.generated.ts
+      - uses: actions/upload-artifact@v7
+        with:
+          name: database-types
+          path: .database-tests/database.generated.ts
+          include-hidden-files: true
+          retention-days: 7
+      - run: supabase stop --no-backup
+        if: always()

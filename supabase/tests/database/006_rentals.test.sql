@@ -1,0 +1,16 @@
+begin;
+select plan(12);
+select ok(not has_function_privilege('anon','public.create_rental(jsonb,text)','EXECUTE'),'Público não cria locações');
+select ok(has_function_privilege('authenticated','public.create_rental(jsonb,text)','EXECUTE'),'Criação por RPC verifica sessão e permissão');
+select ok(not has_table_privilege('authenticated','public.rentals','INSERT,UPDATE,DELETE'),'Equipe não ignora o workflow');
+select ok(not has_function_privilege('authenticated','public.claim_contract_jobs(integer)','EXECUTE'),'Equipe não toma lease diretamente');
+select ok(has_function_privilege('service_role','public.claim_contract_jobs(integer)','EXECUTE'),'Worker possui claim delimitado');
+select ok(not has_function_privilege('anon','public.finish_inspection_photo(uuid,boolean)','EXECUTE'),'Fotos exigem funcionário');
+select ok(not has_function_privilege('authenticated','public.finish_contract_job(uuid,uuid,text,text)','EXECUTE'),'Publicação PDF restrita ao worker');
+select ok(not has_function_privilege('authenticated','app_private.buffered_extend_rental(uuid,uuid,text)','EXECUTE'),'Prorrogação legada não contorna validações novas');
+select ok(not has_table_privilege('anon','public.rental_events','SELECT,INSERT,UPDATE,DELETE'),'Eventos privados');
+select ok(not has_table_privilege('authenticated','public.rental_charge_cancellations','INSERT,UPDATE,DELETE'),'Compensação de obrigação só por transação');
+select ok((select not public from storage.buckets where id='contracts'),'PDFs privados');
+select ok((select not public from storage.buckets where id='inspections'),'Fotos privadas');
+select * from finish();
+rollback;

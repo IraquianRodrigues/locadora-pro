@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "rental_id": "f7000000-0000-4000-8000-000000000001",
+  "start_at": "2026-10-20T12:00:00Z",
+  "end_at": "2026-10-22T12:00:00Z",
+  "company": {
+    "legal_name": "Locadora Fictícia de Homologação",
+    "tax_document": "00000000000000",
+    "timezone": "America/Fortaleza",
+    "contact": {
+      "email": "locadora@example.invalid",
+      "phone": "85999999998",
+      "address": {
+        "street": "Avenida de Teste",
+        "number": "200",
+        "district": "Centro",
+        "city": "Fortaleza",
+        "state": "CE",
+        "postal_code": "60000000"
+      }
+    }
+  },
+  "customer": {
+    "name": "Cliente Fictício de Homologação",
+    "tax_document": "00000000000",
+    "email": "teste@example.invalid",
+    "phone": "85999999999",
+    "address": {
+      "street": "Rua de Teste",
+      "number": "100",
+      "district": "Centro",
+      "city": "Fortaleza",
+      "state": "CE",
+      "postal_code": "60000000"
+    }
+  },
+  "vehicle": {
+    "plate": "TST7A01",
+    "make": "Marca de Teste",
+    "model": "Veículo Fictício",
+    "model_year": 2026
+  },
+  "branch": {
+    "name": "Locadora de Homologação",
+    "address": {
+      "street": "Avenida de Teste",
+      "number": "200",
+      "district": "Centro",
+      "city": "Fortaleza",
+      "state": "CE",
+      "postal_code": "60000000"
+    }
+  },
+  "commercial": {
+    "total": "235.00",
+    "deposit": "500.00",
+    "quote": {
+      "policy": {
+        "timezone": "America/Fortaleza",
+        "turnaround_minutes": 60,
+        "tolerance_minutes": 30
+      },
+      "calculation": {
+        "lines": [
+          {
+            "description": "Locação de duas diárias",
+            "quantity": "2.0000",
+            "unit_amount": "100.00",
+            "total": "200.00"
+          },
+          {
+            "description": "Entrega e coleta",
+            "quantity": "1.0000",
+            "unit_amount": "50.00",
+            "total": "50.00"
+          },
+          {
+            "description": "Desconto autorizado",
+            "kind": "DISCOUNT",
+            "quantity": "1.0000",
+            "unit_amount": "15.00",
+            "total": "15.00"
+          }
+        ]
+      }
+    },
+    "operations": {
+      "checkout_payment": "FULL",
+      "require_deposit": true,
+      "checkin_balance": "SETTLED",
+      "included_km_per_day": 100,
+      "extra_km_amount": "1.50",
+      "fuel_percent_amount": "2.00",
+      "late_tolerance_minutes": 30,
+      "late_hour_amount": "15.00"
+    },
+    "extensions": []
+  },
+  "drivers": [
+    {
+      "name": "Condutor Fictício",
+      "cpf": "00000000000",
+      "license_number": "00000000000",
+      "license_category": "B",
+      "license_expires_on": "2030-12-31"
+    }
+  ],
+  "locations": [
+    {
+      "direction": "PICKUP",
+      "mode": "DELIVERY",
+      "scheduled_at": "2026-10-20T12:00:00Z",
+      "fee": "20.00",
+      "address": {
+        "street": "Rua de Teste",
+        "number": "100",
+        "district": "Centro",
+        "city": "Fortaleza",
+        "state": "CE"
+      },
+      "instructions": "Conferir documentos no local."
+    },
+    {
+      "direction": "RETURN",
+      "mode": "COLLECTION",
+      "scheduled_at": "2026-10-22T12:00:00Z",
+      "fee": "30.00",
+      "address": {
+        "street": "Rua de Teste",
+        "number": "100",
+        "district": "Centro",
+        "city": "Fortaleza",
+        "state": "CE"
+      },
+      "instructions": "Coleta previamente agendada."
+    }
+  ],
+  "initial_inspection": {
+    "id": "f7000000-0000-4000-8000-000000000002",
+    "mileage": 12345,
+    "fuel": "100.00",
+    "completed_at": "2026-10-20T11:45:00Z",
+    "items": [
+      { "key": "pintura", "condition": "OK", "notes": "Sem avarias visíveis." },
+      { "key": "pneus", "condition": "OK", "notes": "Conferidos." }
+    ]
+  },
+  "template": {
+    "id": "f7000000-0000-4000-8000-000000000003",
+    "key": "MODELO-EXCLUSIVO-DE-TESTE",
+    "version": 1,
+    "review_status": "APPROVED",
+    "body": "DOCUMENTO FICTÍCIO PARA VALIDAÇÃO VISUAL. SEM VALIDADE CONTRATUAL.\n\nEste texto serve exclusivamente para testar a geração e paginação do documento. Não constitui modelo jurídico e não deve ser usado em uma contratação real. As condições comerciais e os dados acima são fictícios.\n\nA operação deve usar um modelo próprio, aprovado por seu responsável jurídico. A retirada e a devolução exigem conferência das evidências e das condições configuradas. A geração de um PDF não representa assinatura, pagamento ou aceite do cliente.\n\nA conservação do veículo, a comunicação de ocorrências, as condições de assistência e os procedimentos operacionais devem ser definidos no modelo jurídico real. Este parágrafo apenas verifica a quebra de linhas, os acentos em português e a continuidade de um texto entre páginas."
+  }
+}

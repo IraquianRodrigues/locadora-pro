@@ -1,0 +1,14 @@
+begin;
+select plan(10);
+select ok(not has_table_privilege('anon','public.public_booking_operations','SELECT,INSERT,UPDATE,DELETE'),'Operações públicas não concedem acesso bruto');
+select ok(not has_table_privilege('anon','public.public_reservation_submissions','SELECT,INSERT,UPDATE,DELETE'),'Dados declarados ficam privados');
+select ok(not has_function_privilege('anon','public.persist_public_quote(text,jsonb,text,jsonb,text)','EXECUTE'),'Anon não grava cálculo');
+select ok(not has_function_privilege('authenticated','public.request_public_reservation(text,uuid,jsonb,uuid,text,text)','EXECUTE'),'Submissão passa pelo antispam do servidor');
+select ok(has_function_privilege('service_role','public.request_public_reservation(text,uuid,jsonb,uuid,text,text)','EXECUTE'),'Backend tem RPC delimitada');
+select ok(not has_function_privilege('anon','public.public_quote_owned(text,uuid)','EXECUTE'),'Hash de visitante não é fornecido diretamente pelo público');
+select ok(not has_function_privilege('anon','public.public_image_path(uuid)','EXECUTE'),'Caminho Storage não é público');
+select ok(has_function_privilege('anon','public.public_catalog(jsonb,uuid)','EXECUTE'),'Catálogo usa projeção mínima');
+select ok(exists(select 1 from pg_attribute where attrelid='public.public_reservation_submissions'::regclass and attname='terms_snapshot' and attnotnull),'Textos aceitos preservados');
+select ok(exists(select 1 from pg_attribute where attrelid='public.rate_plans'::regclass and attname='public_enabled' and attnotnull),'Publicação de tarifas explícita');
+select * from finish();
+rollback;

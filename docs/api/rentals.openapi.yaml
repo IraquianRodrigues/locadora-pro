@@ -1,0 +1,114 @@
+openapi: 3.1.0
+info: { title: Locadora Pro — locações, version: 0.9.0 }
+servers: [{ url: /api/v1 }]
+security: [{ StaffCookie: [] }]
+paths:
+  /admin/rentals:
+    get:
+      operationId: listRentals
+      summary: Locações com rentals.read
+      parameters:
+        - {
+            name: page,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 10000, default: 1 },
+          }
+        - {
+            name: status,
+            in: query,
+            schema:
+              {
+                type: string,
+                enum: [PREPARING, ACTIVE, OVERDUE, COMPLETED, CANCELLED],
+              },
+          }
+      responses:
+        "200": { description: Lista paginada }
+        default: { $ref: "#/components/responses/Failure" }
+    post:
+      operationId: createRental
+      summary: Criar de cotação ou converter reserva com rentals.create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: "./business.schemas.json#/$defs/CommandEnvelope" }
+                - properties:
+                    input:
+                      { $ref: "./business.schemas.json#/$defs/CreateRental" }
+      responses:
+        "201": { description: "{data:{id,status,version}}" }
+        default: { $ref: "#/components/responses/Failure" }
+  /admin/rentals/{id}:
+    parameters:
+      - {
+          name: id,
+          in: path,
+          required: true,
+          schema: { type: string, format: uuid },
+        }
+    get:
+      operationId: getRental
+      summary: Locação e informações operacionais autorizadas
+      responses:
+        "200":
+          {
+            description: Detalhe autorizado por rentals.read e permissões dos módulos,
+          }
+        default: { $ref: "#/components/responses/Failure" }
+    patch:
+      operationId: commandRental
+      summary: Transição validada no servidor e no banco
+      description: Permissão específica por ação. O servidor usa o UUID da URL como rental_id; expected_version obrigatório. Sem PATCH livre de status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: "./business.schemas.json#/$defs/CommandEnvelope" }
+                - properties:
+                    input:
+                      { $ref: "./business.schemas.json#/$defs/RentalCommand" }
+      responses:
+        "200": { description: Resultado idempotente da transição }
+        default: { $ref: "#/components/responses/Failure" }
+  /admin/rentals/{id}/extend:
+    parameters:
+      - {
+          name: id,
+          in: path,
+          required: true,
+          schema: { type: string, format: uuid },
+        }
+    post:
+      operationId: extendRental
+      summary: Prorrogar com rentals.extend e cotação confiável
+      description: Novo snapshot de cotação, obrigação e aditivo; conflito desfaz a operação inteira.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [input, idempotency_key]
+              properties:
+                idempotency_key: { type: string, minLength: 16, maxLength: 200 }
+                input:
+                  type: object
+                  additionalProperties: false
+                  required: [quote_id]
+                  properties:
+                    quote_id: { type: string, format: uuid }
+      responses:
+        "200": { description: Resultado da prorrogação }
+        default: { $ref: "#/components/responses/Failure" }
+components:
+  securitySchemes:
+    StaffCookie: { type: apiKey, in: cookie, name: sb-project-ref-auth-token }
+  responses:
+    Failure:
+      description: Erro sanitizado com code/message/requestId. 400/401/403/404/409/429/503 conforme validação, sessão, conflito ou dependência.

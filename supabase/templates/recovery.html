@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Recuperar senha</title>
+  </head>
+  <body>
+    <h1>Recuperação de senha</h1>
+    <p>Recebemos uma solicitação para alterar sua senha na Locadora Pro.</p>
+    <p>
+      <a
+        href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=recovery"
+        >Escolher nova senha</a
+      >
+    </p>
+    <p>Se você não fez esta solicitação, ignore esta mensagem.</p>
+  </body>
+</html>

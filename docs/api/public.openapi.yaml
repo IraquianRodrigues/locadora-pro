@@ -1,0 +1,392 @@
+openapi: 3.1.0
+info:
+  title: Locadora Pro — Catálogo e reservas públicas
+  version: 0.6.0
+  description: >-
+    Fase 6. Respostas sem cache. Mutações exigem Origin canônica e JSON até 64 KiB.
+    Cotação e solicitação exigem cookie assinado, limites distribuídos, honeypot,
+    tempo mínimo e Turnstile verificado no servidor. Sem configuração/publicação,
+    falha fechada em 503. Contrato operacional e homologação em ../public-site.md.
+servers:
+  - url: /api/v1
+paths:
+  /public/session:
+    post:
+      operationId: startPublicVisitor
+      summary: Iniciar atendimento, obter opções publicadas e cookie HttpOnly por 24h
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      responses:
+        "200":
+          description: Define lp-public-visitor se ausente; retorna site, opções e chave pública do widget
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    required: [site, options, site_key]
+                    properties:
+                      site:
+                        {
+                          type: object,
+                          description: "Nome/contato/endereço, termos, privacidade e terms_version publicados.",
+                        }
+                      options:
+                        {
+                          type: object,
+                          description: "branches/categories/plans/services: IDs, nomes e informações publicáveis; planos incluem timezone, serviços unit/amount.",
+                        }
+                      site_key:
+                        {
+                          type: string,
+                          description: Chave pública Turnstile,
+                          nunca segredo,
+                        }
+        default: { $ref: "#/components/responses/Error" }
+  /public/categories:
+    get:
+      operationId: listPublicCategories
+      summary: Categorias ativas publicadas
+      responses:
+        "200":
+          description: data com id/name/description/capacity, sem campos internos
+        default: { $ref: "#/components/responses/Error" }
+  /public/vehicles:
+    get:
+      operationId: listPublicVehicles
+      summary: Catálogo sanitizado com 24 itens/página, busca literal e filtros
+      parameters:
+        - {
+            name: page,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 10000, default: 1 },
+          }
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+        - { name: category, in: query, schema: { type: string, format: uuid } }
+        - { name: branch, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Ordenado por make/model/id; somente veículos/categorias/unidades ativos e não arquivados
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    {
+                      type: array,
+                      items: { $ref: "#/components/schemas/Vehicle" },
+                    }
+                  meta:
+                    type: object
+                    properties:
+                      page: { type: integer }
+                      pageSize: { const: 24 }
+                      total: { type: integer, minimum: 0 }
+        default: { $ref: "#/components/responses/Error" }
+  /public/vehicles/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      operationId: getPublicVehicle
+      responses:
+        "200":
+          description: Veículo publicável
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Vehicle" }
+        "404":
+          {
+            description: Veículo inexistente/inativo/arquivado ou unidade/categoria indisponível,
+          }
+        default: { $ref: "#/components/responses/Error" }
+  /public/images/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      operationId: getPublishedImage
+      summary: Foto READY explicitamente publicada; verifica estado antes de baixar do bucket privado
+      responses:
+        "200":
+          description: Bytes JPEG sem path ou URL assinada; no-store
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "404": { description: Foto não publicável }
+        default: { $ref: "#/components/responses/Error" }
+  /public/quotes:
+    post:
+      operationId: createPublicQuote
+      summary: Calcular/fixar cotação no servidor e consultar disponibilidade indicativa
+      security:
+        - VisitorCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [input, captcha, idempotency_key]
+              properties:
+                input: { $ref: "#/components/schemas/PublicInput" }
+                captcha:
+                  {
+                    type: string,
+                    maxLength: 2048,
+                    description: Token Turnstile da ação quote; novo em primeira tentativa,
+                    replay não o consome novamente,
+                  }
+                website:
+                  {
+                    type: string,
+                    maxLength: 200,
+                    default: "",
+                    description: Honeypot deve ficar vazio,
+                  }
+                idempotency_key:
+                  { $ref: "./commercial.openapi.yaml#/components/schemas/Key" }
+      responses:
+        "201":
+          description: Cotação nova ou replay do mesmo visitante/chave/payload; não confirma disponibilidade
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    required: [id, total, deposit, expires_at, items, available]
+                    properties:
+                      id: { type: string, format: uuid }
+                      total:
+                        {
+                          type: string,
+                          description: Decimal BRL com duas casas,
+                        }
+                      deposit: { type: string, description: Caução separada }
+                      expires_at: { type: string, format: date-time }
+                      available: { type: integer, minimum: 0 }
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            kind:
+                              { enum: [RENTAL, SERVICE, DELIVERY, COLLECTION] }
+                            description: { type: string }
+                            quantity: { type: string }
+                            total: { type: string }
+        default: { $ref: "#/components/responses/Error" }
+  /public/reservations:
+    post:
+      operationId: requestPublicReservation
+      summary: Solicitar análise com cotação própria válida, dados declarados e aceite versionado
+      security:
+        - VisitorCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                [
+                  quote_id,
+                  customer,
+                  terms_version,
+                  accepted,
+                  captcha,
+                  idempotency_key,
+                ]
+              properties:
+                quote_id: { type: string, format: uuid }
+                customer: { $ref: "#/components/schemas/Customer" }
+                terms_version: { type: string, format: uuid }
+                accepted: { const: true }
+                captcha:
+                  {
+                    type: string,
+                    maxLength: 2048,
+                    description: Token da ação reservation,
+                  }
+                website: { type: string, maxLength: 200, default: "" }
+                idempotency_key:
+                  { $ref: "./commercial.openapi.yaml#/components/schemas/Key" }
+      responses:
+        "201":
+          description: REQUESTED e token opaco. Não retorna customer_id/PII nem confirma reserva. Mesmo replay devolve token igual.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [id, status, lookup_token]
+                    properties:
+                      id: { type: string, format: uuid }
+                      status: { const: REQUESTED }
+                      lookup_token:
+                        { type: string, pattern: "^[A-Za-z0-9_-]{43}$" }
+        default: { $ref: "#/components/responses/Error" }
+  /public/reservations/{id}/status:
+    $ref: "./commercial.openapi.yaml#/paths/~1public~1reservations~1{id}~1status"
+components:
+  securitySchemes:
+    VisitorCookie:
+      type: apiKey
+      in: cookie
+      name: lp-public-visitor
+      description: Assinado, HttpOnly, SameSite Strict, Secure em HTTPS. Não autentica identidade do cliente.
+  parameters:
+    Origin:
+      name: Origin
+      in: header
+      required: true
+      schema: { type: string, format: uri }
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Error:
+      description: >-
+        400 validação/desafio; 403 origem/cookie; 404 ausente; 409 regra, versão,
+        validade, idempotência ou conflito genérico sem enumeração de cliente;
+        413 corpo excessivo; 429 quota (Retry-After 900 nas mutações); 503 indisponível.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                required: [code, message]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+                  requestId: { type: string, format: uuid }
+  schemas:
+    Vehicle:
+      type: object
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        category_id: { type: string, format: uuid }
+        category: { type: string }
+        branch_id: { type: string, format: uuid }
+        branch: { type: string }
+        make: { type: string }
+        model: { type: string }
+        version: { type: string }
+        model_year: { type: integer }
+        passengers: { type: integer }
+        doors: { type: integer }
+        fuel: { type: string }
+        transmission: { type: string }
+        description: { type: string }
+        features: { type: array, items: { type: string } }
+        image_id: { type: [string, "null"], format: uuid }
+    PublicInput:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          rate_plan_id,
+          branch_id,
+          category_id,
+          vehicle_id,
+          start_at,
+          end_at,
+          additional_services,
+          pickup_mode,
+          return_mode,
+          pickup_address,
+          return_address,
+          instructions,
+        ]
+      description: Exatamente um alvo; instantes com offset; nenhuma entrada de total/desconto/customer_id/política. Plano e adicionais precisam estar publicados.
+      properties:
+        rate_plan_id: { type: string, format: uuid }
+        branch_id: { type: string, format: uuid }
+        category_id: { type: [string, "null"], format: uuid }
+        vehicle_id: { type: [string, "null"], format: uuid }
+        start_at: { type: string, format: date-time }
+        end_at: { type: string, format: date-time }
+        additional_services:
+          type: array
+          maxItems: 20
+          description: IDs únicos.
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, quantity]
+            properties:
+              id: { type: string, format: uuid }
+              quantity: { type: integer, minimum: 1, maximum: 100 }
+        pickup_mode: { enum: [BRANCH, DELIVERY] }
+        return_mode: { enum: [BRANCH, COLLECTION] }
+        pickup_address:
+          {
+            oneOf:
+              [
+                {
+                  $ref: "./registry.openapi.yaml#/components/schemas/AddressFields",
+                },
+                { type: "null" },
+              ],
+          }
+        return_address:
+          {
+            oneOf:
+              [
+                {
+                  $ref: "./registry.openapi.yaml#/components/schemas/AddressFields",
+                },
+                { type: "null" },
+              ],
+          }
+        instructions: { type: string, maxLength: 500 }
+    Customer:
+      unevaluatedProperties: false
+      allOf:
+        - $ref: "./registry.openapi.yaml#/components/schemas/AddressFields"
+        - type: object
+          required: [person_type, name, tax_document, email, phone, birth_date]
+          properties:
+            person_type: { enum: [PF, PJ] }
+            name: { type: string, minLength: 1, maxLength: 200 }
+            tax_document:
+              {
+                type: string,
+                maxLength: 30,
+                description: CPF/CNPJ válido normalizado no servidor,
+              }
+            email: { type: string, format: email, maxLength: 254 }
+            phone:
+              {
+                type: string,
+                maxLength: 30,
+                description: Telefone brasileiro com DDD válido,
+              }
+            birth_date:
+              {
+                type: [string, "null"],
+                format: date,
+                description: Opcional; apenas pessoa física,
+                sem data futura,
+              }

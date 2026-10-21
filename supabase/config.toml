@@ -1,0 +1,40 @@
+project_id = "locadora-pro"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.seed]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback", "http://localhost:3000/auth/confirm"]
+enable_signup = false
+minimum_password_length = 12
+password_requirements = "lower_upper_letters_digits_symbols"
+
+[auth.email]
+enable_signup = false
+enable_confirmations = true
+
+[auth.email.template.recovery]
+subject = "Recuperação de senha — Locadora Pro"
+content_path = "./supabase/templates/recovery.html"
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"

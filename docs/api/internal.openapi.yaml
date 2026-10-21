@@ -1,0 +1,40 @@
+openapi: 3.1.0
+info: { title: Locadora Pro — monitor e workers, version: 0.9.0 }
+servers: [{ url: /api/internal }]
+security: [{ ServerBearer: [] }]
+paths:
+  /readiness:
+    get:
+      operationId: getOperationalReadiness
+      summary: Prontidão privada de configuração, Auth, schema, RLS e buckets
+      description: READINESS_SECRET. Não comprova entrega SMTP/Resend, Storage HTTP ou backup restaurável.
+      responses:
+        "200": { description: Todos os checks aprovados }
+        "401": { description: Bearer incorreto }
+        "503": { description: Dependência ou configuração indisponível }
+  /rental-jobs:
+    post:
+      operationId: processRentalJobs
+      summary: Contratos e atrasos em lotes com lease
+      description: RENTAL_JOBS_SECRET. Sem corpo. Node runtime, até 60 segundos.
+      responses:
+        "200": { description: Contadores de processamento }
+        "401": { description: Bearer incorreto }
+        "503": { description: Dependência ou configuração indisponível }
+  /business-jobs:
+    post:
+      operationId: processBusinessJobs
+      summary: Alertas, expirações e entrega de notificações
+      description: OPERATIONS_JOBS_SECRET. Sem corpo. Node runtime, até 60 segundos. Aceitação do email não comprova entrega final.
+      responses:
+        "200": { description: Contadores de processamento }
+        "401": { description: Bearer incorreto }
+        "503": { description: Dependência ou configuração indisponível }
+components:
+  securitySchemes:
+    ServerBearer:
+      {
+        type: http,
+        scheme: bearer,
+        description: Segredo distinto por endpoint com pelo menos 32 caracteres,
+      }

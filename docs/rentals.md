@@ -1,0 +1,75 @@
+# Fase 7 — locações, vistorias e contratos
+
+Implementada no repositório em 20/10/2026, sem aplicar SQL ou configurar serviços remotos. A migration aditiva `20261020155701_rental_lifecycle.sql` foi criada pelo CLI Supabase 2.121.0. Há 21 migrations e 58 tabelas da aplicação. As migrations anteriores foram preservadas.
+
+## Operação no painel
+
+1. Um ADMIN abre `/admin/locacoes/configuracao`, informa razão social, CNPJ, endereço e contatos da locadora e cria versões do checklist e do modelo jurídico. O rascunho inicial `BASE_REVISAO_JURIDICA` não pode gerar contratos; exige uma nova versão aprovada mediante confirmação explícita da revisão jurídica. Não há cláusulas definitivas, preços ou dispensas aprovadas por seed.
+2. Configura recebimento prévio (`FULL` ou `NONE`), caução, documentos, saldo para encerramento, categorias de CNH, km por dia, valor por km, combustível por ponto percentual e atraso por hora iniciada após tolerância. Todos os valores são obrigatórios; zero significa ausência da respectiva cobrança. Mudanças valem para novas locações. A identidade da locadora e as regras ficam congeladas na criação.
+3. Em `/admin/locacoes/nova`, cota para cliente e veículo específico e cria a locação direta. Na reserva confirmada, usa **Converter em locação**. A conversão preserva o veículo, a cotação e a mesma linha de alocação, sem janela de liberação. Não reutiliza cotação consumida.
+4. Vincula condutores do cliente, válidos até o fim do período; abre a vistoria inicial, responde todos os itens e anexa fotos. Salva as respostas antes de anexar fotos aos itens. Avarias/ausências exigem descrição e foto; itens com foto obrigatória exigem evidência mesmo quando marcados como não aplicáveis. Concluir congela a vistoria e suas evidências.
+5. Solicita o contrato e usa **Processar contratos e atualizar atrasos**, ou aguarda o worker agendado. Mudanças nos condutores/cadastro ou na vistoria inicial tornam um contrato anterior insuficiente para retirada; solicitar uma versão atual.
+6. Registra a execução da logística de retirada e confirma a retirada. O banco verifica a janela contratada, uso efetivo do veículo, condutores/CNH atuais, vistoria inicial, contrato atual gerado, logística executada e condições de recebimento/caução. Se exigidos, documentos READY do cliente, veículo e de cada condutor precisam existir. Selecionar um meio de pagamento não comprova recebimento.
+7. Prorroga com uma nova cotação para o mesmo cliente, unidade e veículo, começando exatamente no fim vigente. Usar plano sem nova caução, sem repetir entrega/coleta. A transação altera a ocupação com o buffer original, congela também a cotação adicional, cria obrigação e aditivo PDF e atualiza a devolução agendada. Conflito desfaz tudo. Revalida CNH até o novo fim.
+8. Abre e conclui a vistoria final e registra a logística da devolução. Avarias ficam OPEN até avaliação por usuário com `charges.create`; valor aprovado positivo cria obrigação, zero resolve sem cobrar, sempre com fundamentação auditada. Não há atribuição automática de culpa ou preço de avaria.
+9. **Apurar e confirmar devolução** calcula excedentes uma vez e congela a apuração. Se exigir quitação, a primeira operação pode retornar `awaiting_payment: true`; após o financeiro liquidar, atualizar a tela e confirmar novamente com uma nova chave. Até lá a locação continua aberta e alocada. O fechamento registra km/combustível finais, atualiza hodômetro sem regressão, libera alocação, histórico e outbox.
+
+Cancelamento só em PREPARING, com motivo. Obrigações não recebidas ganham cancelamentos compensatórios imutáveis, sem apagar cobranças. Pagamentos ou cauções existentes bloqueiam o cancelamento até tratamento financeiro; não há reembolso automático. Saldo cancelado aparece zerado na projeção financeira e não aceita pagamento/aplicação de caução novos.
+
+### Apuração e atraso
+
+O relógio é do banco. A conclusão da vistoria final é a referência de devolução para km, combustível e atraso. Km incluídos = km/dia configurados × teto da duração contratada em dias de 24h, mínimo um; combustível = diferença positiva em pontos percentuais × tarifa; atraso = teto das horas excedentes depois da tolerância × tarifa. Cálculos monetários usam `numeric`, arredondamento decimal a duas casas. Não há cobrança automática de diárias novas ou multas não configuradas.
+
+ACTIVE cujo fim passou aparece como atraso imediatamente na tela, mesmo antes do job. O job marca OVERDUE em lotes de até 100 com SKIP LOCKED e evento deduplicado. Um veículo em uso impede outra retirada e, quando vencido, nova criação/aprovação, mesmo fora da faixa originalmente alocada. A tela destaca reservas seguintes para tratamento operacional. Não remaneja reservas nem aumenta faixas silenciosamente.
+
+## Segurança, concorrência e arquivos
+
+Mutações usam sessão SSR verificada, Origin canônica nas actions/APIs, permissões atuais e RPCs com `search_path=''` e grants explícitos. Tabelas operacionais não têm INSERT/UPDATE/DELETE concedidos à equipe. Locks de locação/veículo, exclusão GiST, comparação de versão e idempotência protegem concorrência. A chave repetida só repete o resultado quando o payload corresponde; a versão obsoleta exige atualizar a tela.
+
+Fotos: servidor decodifica imagens, normaliza JPEG, remove EXIF, limita a 4 MiB e calcula SHA-256. Metadados começam PENDING; upload com service role usa apenas caminho criado pela RPC; finalização volta à sessão atual, exige objeto e estado editável. Somente READY pode ser lido/contar como evidência. INSERT direto no Storage pela equipe está fechado. Fotos concluídas não podem ser substituídas ou apagadas pela aplicação.
+
+PDF: `pdf-lib@1.17.1`, `@pdf-lib/fontkit@1.1.1`, fonte Noto Sans local sob SIL OFL em `assets/fonts/`. Runtime Node 24; fonte incluída no rastreamento do Next. Não depende de Python/Poppler no deploy. O documento inclui locadora, cliente, condutores, veículo, datas, endereços/taxas, cotação, caução, regras, quilometragem, vistoria, cláusulas aprovadas e campos de assinatura. Texto sem glifo suportado falha explicitamente. Corpo de modelo é texto, sem execução ou substituição de código.
+
+O snapshot e a versão são imutáveis desde a solicitação. Worker usa lease de dois minutos com token por tentativa, `upsert: false`, hash dos bytes e objeto privado. Somente finaliza com token vigente e objeto presente. Até cinco tentativas automáticas, espera crescente de 60 a 300 segundos; falhas ficam FAILED e podem ser reagendadas pela equipe autorizada. Uma confirmação ambígua é consultada antes da compensação, para não apagar documento publicado. O SHA-256 no rodapé identifica o snapshot serializado; `contracts.sha256` identifica os bytes do PDF. São hashes diferentes.
+
+Downloads usam o cliente da sessão e RLS, URL assinada válida por 60 segundos, sem bucket público. Uma URL já emitida é uma credencial temporária até expirar; revogar permissão impede emitir novas URLs. PDFs não representam assinatura, pagamento nem aceite. Assinatura eletrônica está fora do escopo.
+
+## Rotas e contratos de entrada
+
+| Rota                                             | Comportamento                                                                                                                      |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/admin/rentals?page=1&status=ACTIVE` | Lista por página de 20, total e ordenação estável                                                                                  |
+| `POST /api/v1/admin/rentals`                     | Envelope `{ input, idempotency_key }`; input direto `{ quote_id, vehicle_id }` ou conversão `{ reservation_id, expected_version }` |
+| `GET /api/v1/admin/rentals/:id`                  | Locação, inspeções, contratos, logística, histórico recente, avarias e alertas, sob permissões                                     |
+| `PATCH /api/v1/admin/rentals/:id`                | Envelope; input com `action`, `expected_version` e campos da operação; ID do caminho prevalece                                     |
+| `POST /api/v1/admin/rentals/:id/extend`          | Envelope; input `{ quote_id }`                                                                                                     |
+| `POST /api/internal/rental-jobs`                 | Worker de PDFs/atrasos, Bearer secreto exclusivamente de servidor                                                                  |
+
+Actions do painel reutilizam os mesmos serviços. Schemas estritos em `src/lib/rentals/schema.ts` são o contrato executável. Comandos: DRIVERS (`driver_ids`), INSPECTION (`kind,mileage,fuel,notes`), ITEMS (`inspection_id,items[{key,condition,notes}]`), COMPLETE_INSPECTION (`inspection_id`), CONTRACT, RETRY_CONTRACT (`contract_id`), LOGISTICS (`direction,notes`), CHECKOUT, CHECKIN, CANCEL (`reason`) e ASSESS_DAMAGE (`damage_id,amount,reason`). A chave tem 16–200 caracteres ASCII; IDs são UUID; valores monetários são strings decimais com ponto e duas casas. Extras/total/status arbitrários são recusados.
+
+Erros: 400 dados inválidos, 401/403 autenticação/permissão, 409 regra de negócio ou concorrência, 429 quota de upload, 503 dependência/configuração indisponível. Sem configuração Auth a proxy responde 503 e o painel redireciona para login. JSON de erro é sanitizado, com requestId; cache privado/no-store. Fotos/links/configuração são server actions com Origin e autenticação; configuração é exclusiva de ADMIN. `rentals.read` foi mapeada também na proxy para a API em inglês.
+
+## Configuração do Supabase e infraestrutura pendente
+
+Não há `.env.local`, Docker nem projeto remoto selecionado/configurado para esta entrega. O CLI foi executado via npm para criar a migration e consultar comandos; a stack Supabase não foi iniciada. Nada foi publicado remotamente.
+
+1. Aplicar as migrations pelo fluxo de homologação em [database/setup.md](database/setup.md). Antes da 21, revisar duplicidades de `rentals.quote_id`, `rental_extensions.quote_id` e `charges.damage_id`: índices novos rejeitam duplicatas. Não fazer deduplicação/destruição automática. Rever policies preexistentes dos buckets; ficam todos privados.
+2. Rodar PostgreSQL 17/Supabase real, pgTAP incluindo `006_rentals.test.sql`, lint/advisors e gerar tipos oficiais. Atualizar schema cache PostgREST após a migration. Validar os embeds 1:N usados na tela e as assinaturas RPC com JWT real.
+3. Configurar URL/chave publicável/service role, `AUTH_SECRET`, URL canônica HTTPS, contas/cargos e Auth conforme [authentication.md](authentication.md). A service role fica apenas no servidor, em upload/worker e nos usos restritos das fases anteriores.
+4. Homologar Storage: `inspections` e `contracts` privados, MIME JPEG/PDF, limites de 10 MiB do bucket, limite efetivo de foto 4 MiB no servidor, ausência de INSERT/UPDATE/DELETE da equipe e acesso negado a anon/FINANCE. Validar geração e expiração real das URLs. Não alterar `contracts.snapshot`, versão ou evidências concluídas.
+5. Configurar dados da locadora, modelos aprovados e regras no painel. Fixtures e o PDF em `output/pdf/contrato-exemplo-ficticio.pdf` são exclusivamente fictícios. Fotos legadas nascem PENDING na evolução: reconciliar hash/objeto/estado antes de READY. Locações legadas sem `commercial_snapshot.workflow = v1` exigem migração operacional revisada antes das novas mutações; não recebem regras inventadas.
+6. Criar `RENTAL_JOBS_SECRET` aleatório com pelo menos 32 caracteres no gerenciador de segredos. Agendador externo deve fazer POST HTTPS para `/api/internal/rental-jobs`, com `Authorization: Bearer <segredo>`, por exemplo a cada minuto. Cada chamada processa até três PDFs e 100 atrasos; dimensionar frequência, tempo de execução e backlog. Não colocar segredos em query strings, logs ou no cliente. Endpoint retorna 503 sem configuração, 401 se Bearer não conferir. Não foi criado agendamento remoto/pago. Há disparo manual autorizado no painel.
+7. Monitorar contratos PENDING/FAILED, leases expirados, tentativas esgotadas e outbox. Queda entre upload e confirmação pode deixar objeto órfão. Reconciliador administrativo deve cruzar Storage e metadados, validar SHA-256 e referência antes de limpar; nunca apagar objeto de contrato GENERATED nem foto READY concluída. Limpeza automática/antivírus/retenção/backup precisam ser definidos na infraestrutura.
+8. Homologar fluxo autenticado completo em desktop/mobile: cotar → criar/converter → condutores → vistoria/foto → contrato → recebimento/caução → retirada → prorrogar → avaria/avaliação → vistoria final → quitação → devolver. Testar revogação durante upload, resposta perdida, disputa de veículo e de versão, próxima reserva afetada e downloads após expiração. Revisão assistiva das telas autenticadas ainda depende desse ambiente.
+
+O pré-requisito financeiro usa lançamentos efetivamente confirmados e compensações do ledger existente. `confirm_charge_payment` exige `payments.confirm` e confirmação explícita; não consulta gateway nem considera intenção de Pix como recebimento. A interface financeira completa, recebimento/gestão de cauções e seus reembolsos, relatórios, entrega de notificações da outbox e manutenção continuam na Fase 8. Em homologação, testar esses lançamentos com o responsável financeiro antes de usar uma política que os exija; não dispensar regras apenas para contornar uma pendência de implantação.
+
+## Evidências locais
+
+- 119 testes unitários, incluindo PDF real/reprodutibilidade/paginação/fonte/aditivo e worker com confirmação perdida, falhas e lease vencido.
+- 56 cenários em PostgreSQL 18.4 isolado aplicando 21 migrations, incluindo criação, conversão da mesma alocação, RBAC, evidências congeladas, retirada com recebimento/caução, concorrência, prorrogação/rollback/aditivo, avaria avaliada, extras únicos, quitação, cancelamento compensatório e atraso. O harness simula apenas os contratos SQL Auth/Storage; não valida JWT ou transporte HTTP real.
+- 36 testes Playwright em desktop/mobile. Os novos testes comprovam fechamento das telas/APIs e worker sem configuração. O fluxo público anterior usa adaptadores HTTP/widget somente nos testes. Não é E2E autenticado de locação contra Supabase.
+- PDF fictício A4 de duas páginas gerado pelo renderer de produção, renderizado com Poppler, inspecionado visualmente e conferido com pdfplumber (texto e limites dos caracteres). Reprodução: `node scripts/preview-contract.ts`. Python/Poppler foram apenas ferramentas de QA local.
+- Build, tipos, lint e formatação verificados. pgTAP preparado, ainda não executado na stack completa.
+
+Fontes: [Storage privado e buckets](https://supabase.com/docs/guides/storage/buckets/fundamentals), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [migrations](https://supabase.com/docs/guides/deployment/database-migrations), [changelog consultado](https://supabase.com/changelog), [PDF-LIB](https://pdf-lib.js.org/docs/api/classes/pdfdocument), [Noto Sans e licença](https://github.com/notofonts/noto-fonts).

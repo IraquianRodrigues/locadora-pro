@@ -1,0 +1,242 @@
+openapi: 3.1.0
+info:
+  title: Locadora Pro — operações da Fase 8
+  version: 0.8.0
+  description: Contratos de negócio; regras e refinamentos adicionais em business.md. Respostas privadas no-store. Escritas exigem Origin canônico e sessão atual.
+servers:
+  - url: /api/v1
+security:
+  - StaffCookie: []
+paths:
+  /admin/finance:
+    get:
+      operationId: listFinancialRegister
+      summary: Registros financeiros com páginas de 20 itens
+      description: finance.read. EXPENSES não aceita filtros de cliente/locação.
+      parameters:
+        - {
+            name: kind,
+            in: query,
+            schema:
+              {
+                type: string,
+                enum:
+                  [CHARGES, PAYMENTS, DEPOSITS, REFUNDS, EXPENSES, ADJUSTMENTS],
+                default: CHARGES,
+              },
+          }
+        - { $ref: "#/components/parameters/Page" }
+        - { name: customer, in: query, schema: { type: string, format: uuid } }
+        - { name: rental, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "{rows,total,page,page_size:20}" }
+        default: { $ref: "#/components/responses/Failure" }
+    post:
+      operationId: executeFinanceCommand
+      summary: Registrar operação financeira atômica e idempotente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: "./business.schemas.json#/$defs/CommandEnvelope" }
+                - properties:
+                    input:
+                      { $ref: "./business.schemas.json#/$defs/FinanceCommand" }
+      responses:
+        "201":
+          {
+            description: "{data:{id}}; recibo não confirma movimentação em terceiros",
+          }
+        default: { $ref: "#/components/responses/Failure" }
+  /admin/maintenance:
+    get:
+      operationId: listMaintenance
+      summary: Agenda de manutenção, maintenance.read
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - {
+            name: status,
+            in: query,
+            schema:
+              {
+                type: string,
+                enum: [SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED],
+              },
+          }
+      responses:
+        "200": { description: "{rows,total,page}, 20 itens" }
+        default: { $ref: "#/components/responses/Failure" }
+    post:
+      operationId: executeMaintenanceCommand
+      summary: Agendar ou transicionar manutenção com maintenance.write
+      requestBody: { $ref: "#/components/requestBodies/MaintenanceCommand" }
+      responses:
+        "201": { description: "{data:{id,version,status}}" }
+        default: { $ref: "#/components/responses/Failure" }
+  /admin/maintenance/{id}:
+    parameters:
+      - {
+          name: id,
+          in: path,
+          required: true,
+          schema: { type: string, format: uuid },
+        }
+    get:
+      operationId: getMaintenance
+      summary: Registro e histórico de manutenção com maintenance.read
+      responses:
+        "200":
+          { description: "{record,events}, histórico limitado a 100 eventos" }
+        default: { $ref: "#/components/responses/Failure" }
+    patch:
+      operationId: transitionMaintenance
+      summary: Transicionar registro existente, maintenance.write
+      description: input.maintenance_id deve ser igual à URL; CREATE é recusado. expected_version obrigatório.
+      requestBody: { $ref: "#/components/requestBodies/MaintenanceCommand" }
+      responses:
+        "200": { description: "{data:{id,version,status}}" }
+        default: { $ref: "#/components/responses/Failure" }
+  /admin/dashboard:
+    get:
+      operationId: getBusinessDashboard
+      summary: Indicadores por domínio autorizado
+      parameters:
+        - {
+            name: from,
+            in: query,
+            schema: { type: string, format: date },
+            description: Padrão início do mês corrente,
+          }
+        - {
+            name: to,
+            in: query,
+            schema: { type: string, format: date },
+            description: Inclusive; padrão hoje; até 366 dias civis,
+          }
+      responses:
+        "200":
+          { description: "{operations?,finance?}, sem domínio não autorizado" }
+        default: { $ref: "#/components/responses/Failure" }
+  /admin/reports:
+    get:
+      operationId: getBusinessReport
+      summary: Relatório de dados reais, autorização por tipo
+      parameters:
+        - { $ref: "#/components/parameters/ReportKind" }
+        - { $ref: "#/components/parameters/From" }
+        - { $ref: "#/components/parameters/To" }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+      responses:
+        "200":
+          {
+            description: "{rows,total,page,page_size,kind}; células textuais e decimais exatos",
+          }
+        default: { $ref: "#/components/responses/Failure" }
+  /admin/reports/export:
+    get:
+      operationId: exportBusinessReport
+      summary: CSV da página selecionada, até 100 linhas
+      description: Autorização por tipo, rate limit por funcionário, auditoria e neutralização de fórmulas.
+      parameters:
+        - { $ref: "#/components/parameters/ReportKind" }
+        - { $ref: "#/components/parameters/From" }
+        - { $ref: "#/components/parameters/To" }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+      responses:
+        "200":
+          description: UTF-8 BOM, ponto e vírgula, CRLF e download attachment
+          content:
+            text/csv:
+              schema: { type: string }
+        default: { $ref: "#/components/responses/Failure" }
+components:
+  securitySchemes:
+    StaffCookie:
+      {
+        type: apiKey,
+        in: cookie,
+        name: sb-project-ref-auth-token,
+        description: Nome real depende do projeto Supabase e pode ter chunks,
+      }
+  responses:
+    Failure:
+      description: 400 dados inválidos; 401 sessão ausente; 403 sem permissão/origem; 404 ausente; 409 conflito/saldo/versão; 429 limite; 503 configuração/serviço. Sem detalhes internos.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code, message, requestId]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+                  requestId: { type: string, format: uuid }
+  requestBodies:
+    MaintenanceCommand:
+      required: true
+      content:
+        application/json:
+          schema:
+            allOf:
+              - { $ref: "./business.schemas.json#/$defs/CommandEnvelope" }
+              - properties:
+                  input:
+                    {
+                      $ref: "./business.schemas.json#/$defs/MaintenanceCommand",
+                    }
+  parameters:
+    Page:
+      {
+        name: page,
+        in: query,
+        schema: { type: integer, minimum: 1, maximum: 10000, default: 1 },
+      }
+    PageSize:
+      {
+        name: page_size,
+        in: query,
+        schema: { type: integer, minimum: 1, maximum: 100, default: 50 },
+      }
+    From:
+      {
+        name: from,
+        in: query,
+        required: true,
+        schema: { type: string, format: date },
+      }
+    To:
+      {
+        name: to,
+        in: query,
+        required: true,
+        description: Inclusive; até 366 dias civis,
+        schema: { type: string, format: date },
+      }
+    ReportKind:
+      name: kind
+      in: query
+      required: true
+      schema:
+        {
+          type: string,
+          enum:
+            [
+              REVENUE,
+              RECEIPTS,
+              EXPENSES,
+              PROFITABILITY,
+              BALANCES,
+              RESERVATIONS,
+              OCCUPANCY,
+              RECURRING,
+              OVERDUE,
+              MAINTENANCE,
+            ],
+        }

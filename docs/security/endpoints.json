@@ -1,0 +1,185 @@
+{
+  "description": "Inventário estático; não substitui testes de autorização HTTP/JWT. Server Actions e callback Auth são revisados separadamente.",
+  "routes": [
+    {
+      "path": "/api/internal/business-jobs",
+      "methods": ["POST"],
+      "boundary": "server-bearer",
+      "file": "src/app/api/internal/business-jobs/route.ts"
+    },
+    {
+      "path": "/api/internal/readiness",
+      "methods": ["GET"],
+      "boundary": "server-bearer",
+      "file": "src/app/api/internal/readiness/route.ts"
+    },
+    {
+      "path": "/api/internal/rental-jobs",
+      "methods": ["POST"],
+      "boundary": "server-bearer",
+      "file": "src/app/api/internal/rental-jobs/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/{resource}",
+      "methods": ["GET", "POST"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/[resource]/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/{resource}/{id}",
+      "methods": ["GET", "PATCH", "DELETE"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/[resource]/[id]/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/availability",
+      "methods": ["POST"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/availability/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/dashboard",
+      "methods": ["GET"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/dashboard/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/finance",
+      "methods": ["GET", "POST"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/finance/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/maintenance",
+      "methods": ["GET", "POST"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/maintenance/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/maintenance/{id}",
+      "methods": ["GET", "PATCH"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/maintenance/[id]/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/quotes",
+      "methods": ["POST"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/quotes/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/quotes/{id}",
+      "methods": ["GET"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/quotes/[id]/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/rentals",
+      "methods": ["GET", "POST"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/rentals/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/rentals/{id}",
+      "methods": ["GET", "PATCH"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/rentals/[id]/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/rentals/{id}/extend",
+      "methods": ["POST"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/rentals/[id]/extend/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/reports",
+      "methods": ["GET"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/reports/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/reports/export",
+      "methods": ["GET"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/reports/export/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/reservations",
+      "methods": ["GET", "POST"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/reservations/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/reservations/{id}",
+      "methods": ["GET", "PATCH"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/reservations/[id]/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/reservations/expire",
+      "methods": ["POST"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/reservations/expire/route.ts"
+    },
+    {
+      "path": "/api/v1/admin/session",
+      "methods": ["GET"],
+      "boundary": "staff-session-rbac",
+      "file": "src/app/api/v1/admin/session/route.ts"
+    },
+    {
+      "path": "/api/v1/health",
+      "methods": ["GET"],
+      "boundary": "public-allowlist",
+      "file": "src/app/api/v1/health/route.ts"
+    },
+    {
+      "path": "/api/v1/public/categories",
+      "methods": ["GET"],
+      "boundary": "public-allowlist",
+      "file": "src/app/api/v1/public/categories/route.ts"
+    },
+    {
+      "path": "/api/v1/public/images/{id}",
+      "methods": ["GET"],
+      "boundary": "public-allowlist",
+      "file": "src/app/api/v1/public/images/[id]/route.ts"
+    },
+    {
+      "path": "/api/v1/public/quotes",
+      "methods": ["POST"],
+      "boundary": "public-allowlist",
+      "file": "src/app/api/v1/public/quotes/route.ts"
+    },
+    {
+      "path": "/api/v1/public/reservations",
+      "methods": ["POST"],
+      "boundary": "public-allowlist",
+      "file": "src/app/api/v1/public/reservations/route.ts"
+    },
+    {
+      "path": "/api/v1/public/reservations/{id}/status",
+      "methods": ["GET"],
+      "boundary": "public-allowlist",
+      "file": "src/app/api/v1/public/reservations/[id]/status/route.ts"
+    },
+    {
+      "path": "/api/v1/public/session",
+      "methods": ["POST"],
+      "boundary": "public-allowlist",
+      "file": "src/app/api/v1/public/session/route.ts"
+    },
+    {
+      "path": "/api/v1/public/vehicles",
+      "methods": ["GET"],
+      "boundary": "public-allowlist",
+      "file": "src/app/api/v1/public/vehicles/route.ts"
+    },
+    {
+      "path": "/api/v1/public/vehicles/{id}",
+      "methods": ["GET"],
+      "boundary": "public-allowlist",
+      "file": "src/app/api/v1/public/vehicles/[id]/route.ts"
+    }
+  ]
+}

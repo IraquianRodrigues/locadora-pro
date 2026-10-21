@@ -1,0 +1,179 @@
+openapi: 3.1.0
+info:
+  title: Locadora Pro — API
+  version: 0.9.0
+  description: >-
+    Liveness, sessão administrativa e CRUD de categorias, frota, clientes, condutores e unidades implementados.
+    Tarifas, cotações, disponibilidade, reservas administrativas e consulta por token implementadas na Fase 5.
+    Catálogo público, cotação e solicitação com antispam implementados na Fase 6.
+    Financeiro, manutenção, indicadores, relatórios e CSV implementados na Fase 8.
+servers:
+  - url: /api/v1
+tags:
+  - name: Infraestrutura
+  - name: Autenticação
+paths:
+  /admin/rentals:
+    $ref: "./rentals.openapi.yaml#/paths/~1admin~1rentals"
+  /admin/rentals/{id}:
+    $ref: "./rentals.openapi.yaml#/paths/~1admin~1rentals~1{id}"
+  /admin/rentals/{id}/extend:
+    $ref: "./rentals.openapi.yaml#/paths/~1admin~1rentals~1{id}~1extend"
+  /admin/finance:
+    $ref: "./business.openapi.yaml#/paths/~1admin~1finance"
+  /admin/maintenance:
+    $ref: "./business.openapi.yaml#/paths/~1admin~1maintenance"
+  /admin/maintenance/{id}:
+    $ref: "./business.openapi.yaml#/paths/~1admin~1maintenance~1{id}"
+  /admin/dashboard:
+    $ref: "./business.openapi.yaml#/paths/~1admin~1dashboard"
+  /admin/reports:
+    $ref: "./business.openapi.yaml#/paths/~1admin~1reports"
+  /admin/reports/export:
+    $ref: "./business.openapi.yaml#/paths/~1admin~1reports~1export"
+  /public/session:
+    $ref: "./public.openapi.yaml#/paths/~1public~1session"
+  /public/categories:
+    $ref: "./public.openapi.yaml#/paths/~1public~1categories"
+  /public/vehicles:
+    $ref: "./public.openapi.yaml#/paths/~1public~1vehicles"
+  /public/vehicles/{id}:
+    $ref: "./public.openapi.yaml#/paths/~1public~1vehicles~1{id}"
+  /public/images/{id}:
+    $ref: "./public.openapi.yaml#/paths/~1public~1images~1{id}"
+  /public/quotes:
+    $ref: "./public.openapi.yaml#/paths/~1public~1quotes"
+  /public/reservations:
+    $ref: "./public.openapi.yaml#/paths/~1public~1reservations"
+  /admin/quotes:
+    $ref: "./commercial.openapi.yaml#/paths/~1admin~1quotes"
+  /admin/quotes/{id}:
+    $ref: "./commercial.openapi.yaml#/paths/~1admin~1quotes~1{id}"
+  /admin/availability:
+    $ref: "./commercial.openapi.yaml#/paths/~1admin~1availability"
+  /admin/reservations:
+    $ref: "./commercial.openapi.yaml#/paths/~1admin~1reservations"
+  /admin/reservations/{id}:
+    $ref: "./commercial.openapi.yaml#/paths/~1admin~1reservations~1{id}"
+  /admin/reservations/expire:
+    $ref: "./commercial.openapi.yaml#/paths/~1admin~1reservations~1expire"
+  /public/reservations/{id}/status:
+    $ref: "./commercial.openapi.yaml#/paths/~1public~1reservations~1{id}~1status"
+  /admin/{resource}:
+    $ref: "./registry.openapi.yaml#/paths/~1admin~1{resource}"
+  /admin/{resource}/{id}:
+    $ref: "./registry.openapi.yaml#/paths/~1admin~1{resource}~1{id}"
+  /admin/session:
+    get:
+      operationId: getStaffSession
+      tags: [Autenticação]
+      summary: Contexto da própria sessão da equipe
+      description: Identidade validada no Auth, perfil ativo, sessão existente e RBAC atual no banco. Sem tokens. Resposta private, no-store.
+      security:
+        - StaffCookie: []
+      responses:
+        "200":
+          description: Funcionário autorizado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [id, displayName, roles, permissions]
+                    properties:
+                      id: { type: string, format: uuid }
+                      displayName: { type: string }
+                      roles:
+                        type: array
+                        items:
+                          {
+                            type: string,
+                            enum: [ADMIN, MANAGER, ATTENDANT, FINANCE],
+                          }
+                      permissions:
+                        type: array
+                        items: { type: string }
+        "401":
+          description: Sem identidade válida
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: Perfil, cargo, sessão ou permissão não autorizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "503":
+          description: Auth/banco/configuração indisponível
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /health:
+    get:
+      operationId: getHealth
+      tags: [Infraestrutura]
+      summary: Liveness do processo HTTP
+      description: Não consulta banco, Auth ou Storage. Não indica prontidão comercial.
+      security: []
+      responses:
+        "200":
+          description: Processo respondendo
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [status, service]
+                    properties:
+                      status:
+                        const: ok
+                      service:
+                        const: locadora-pro
+components:
+  securitySchemes:
+    StaffCookie:
+      type: apiKey
+      in: cookie
+      name: sb-project-ref-auth-token
+      description: Nome depende do projeto Supabase; pode ser dividido em chunks. Emitido somente pelo servidor, HttpOnly. Não copiar tokens para documentação.
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, requestId]
+          properties:
+            code:
+              type: string
+              description: Código sanitizado da camada de autenticação ou do módulo; sem detalhes do banco.
+            message:
+              type: string
+            requestId:
+              type: string
+              format: uuid
+    Pagination:
+      type: object
+      required: [page, pageSize, total]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0

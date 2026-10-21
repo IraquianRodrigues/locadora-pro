@@ -1,0 +1,453 @@
+openapi: 3.1.0
+info:
+  title: Locadora Pro — Cadastros
+  version: 0.5.0
+  description: CRUD real das Fases 4/5. Servidor e RLS validam permissões atuais. DELETE arquiva. Todas as respostas são private, no-store. Uploads usam Server Actions, descritas em ../registry.md. Planos, preços e serviços exigem pricing.read/write; regras comerciais em ../reservations.md.
+servers:
+  - url: /api/v1
+security:
+  - StaffCookie: []
+paths:
+  /admin/{resource}:
+    parameters:
+      - $ref: "#/components/parameters/Resource"
+    get:
+      operationId: listRegistry
+      summary: Listar cadastros por permissão de leitura
+      parameters:
+        - {
+            name: page,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 10000, default: 1 },
+          }
+        - {
+            name: q,
+            in: query,
+            description: "Nome; para vehicles, placa. Curingas são tratados como texto.",
+            schema: { type: string, maxLength: 100 },
+          }
+        - {
+            name: archived,
+            in: query,
+            schema: { type: string, enum: ["false", "true"], default: "false" },
+          }
+        - {
+            name: category,
+            in: query,
+            description: Somente vehicles.,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            name: status,
+            in: query,
+            description: Somente vehicles.,
+            schema:
+              { type: string, enum: [ACTIVE, INACTIVE, MAINTENANCE, RETIRED] },
+          }
+      responses:
+        "200":
+          description: Lista real, até 20 registros, ordenada por nome/placa e ID
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    {
+                      type: array,
+                      items: { $ref: "#/components/schemas/RegistryRecord" },
+                    }
+                  meta:
+                    type: object
+                    required: [page, pageSize, total]
+                    properties:
+                      page: { type: integer }
+                      pageSize: { const: 20 }
+                      total: { type: integer, minimum: 0 }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createRegistry
+      summary: Criar cadastro com permissão de escrita
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegistryInput" }
+      responses:
+        "201": { $ref: "#/components/responses/Saved" }
+        default: { $ref: "#/components/responses/Error" }
+  /admin/{resource}/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Resource"
+      - {
+          name: id,
+          in: path,
+          required: true,
+          schema: { type: string, format: uuid },
+        }
+    get:
+      operationId: getRegistry
+      summary: Consultar cadastro e revisão, inclusive arquivados, com permissão de leitura
+      responses:
+        "200":
+          description: Campos persistidos da tabela correspondente, incluindo address composto nos clientes/unidades
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/RegistryRecord" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateRegistry
+      summary: Editar campos completos ou restaurar, com revisão e permissão de escrita
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [revision, values]
+                  properties:
+                    revision:
+                      {
+                        type: string,
+                        format: date-time,
+                        description: Valor updated_at exato recebido do servidor; não arredondar microssegundos.,
+                      }
+                    values: { $ref: "#/components/schemas/RegistryInput" }
+                - type: object
+                  additionalProperties: false
+                  required: [revision, restore]
+                  properties:
+                    revision: { type: string, format: date-time }
+                    restore: { const: true }
+      responses:
+        "200": { $ref: "#/components/responses/Saved" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: archiveRegistry
+      summary: Arquivar sem apagar referências; exige revisão e permissão de escrita
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [revision]
+              properties:
+                revision: { type: string, format: date-time }
+      responses:
+        "200": { $ref: "#/components/responses/Saved" }
+        default: { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    StaffCookie:
+      type: apiKey
+      in: cookie
+      name: sb-project-ref-auth-token
+      description: Nome por projeto, eventualmente dividido em chunks. HttpOnly, emitido pelo servidor.
+  parameters:
+    Resource:
+      name: resource
+      in: path
+      required: true
+      schema:
+        {
+          type: string,
+          enum:
+            [
+              categories,
+              vehicles,
+              customers,
+              drivers,
+              branches,
+              rate-plans,
+              prices,
+              services,
+            ],
+        }
+    Origin:
+      name: Origin
+      in: header
+      required: true
+      description: Origem canônica exata de NEXT_PUBLIC_APP_URL. Não há suporte a escrita cross-origin.
+      schema: { type: string, format: uri }
+  responses:
+    Saved:
+      description: Persistido; conflito/duplicidade/vínculo/edição concorrente retorna 409
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string, format: uuid }
+    Error:
+      description: 400 dados inválidos; 401 sem sessão; 403 sem permissão/origem inválida; 404 ausente; 409 conflito/integridade; 413 JSON acima de 64 KiB; 503 indisponível. Sem detalhes SQL/PII.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code, message, requestId]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+                  requestId: { type: string, format: uuid }
+  schemas:
+    RegistryRecord:
+      type: object
+      required: [id, updated_at, archived_at]
+      properties:
+        id: { type: string, format: uuid }
+        updated_at: { type: string, format: date-time }
+        archived_at: { type: [string, "null"], format: date-time }
+      additionalProperties: true
+      description: A listagem retorna as colunas de resumo do recurso; GET por ID retorna todos os campos persistidos. PII exige permissão específica. Veja src/lib/registry/config.ts.
+    Features:
+      oneOf:
+        - {
+            type: string,
+            maxLength: 1500,
+            description: "Até 30 características separadas por vírgula, 80 caracteres por item.",
+          }
+        - {
+            type: array,
+            maxItems: 30,
+            items: { type: string, minLength: 1, maxLength: 80 },
+          }
+    AddressFields:
+      type: object
+      required: [postal_code, street, number, district, city, state]
+      properties:
+        postal_code:
+          { type: string, description: "CEP de 8 dígitos, aceita hífen." }
+        street: { type: string, minLength: 1, maxLength: 160 }
+        number: { type: string, minLength: 1, maxLength: 20 }
+        district: { type: string, minLength: 1, maxLength: 100 }
+        city: { type: string, minLength: 1, maxLength: 100 }
+        state:
+          {
+            type: string,
+            enum:
+              [
+                AC,
+                AL,
+                AP,
+                AM,
+                BA,
+                CE,
+                DF,
+                ES,
+                GO,
+                MA,
+                MT,
+                MS,
+                MG,
+                PA,
+                PB,
+                PR,
+                PE,
+                PI,
+                RJ,
+                RN,
+                RS,
+                RO,
+                RR,
+                SC,
+                SP,
+                SE,
+                TO,
+              ],
+          }
+        complement: { type: [string, "null"], maxLength: 160 }
+    CategoryInput:
+      type: object
+      additionalProperties: false
+      required: [name, description, capacity, features, active]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 5000 }
+        capacity: { type: integer, minimum: 1, maximum: 100 }
+        features: { $ref: "#/components/schemas/Features" }
+        active: { type: boolean }
+    VehicleInput:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          category_id,
+          branch_id,
+          plate,
+          make,
+          model,
+          version,
+          manufacture_year,
+          model_year,
+          color,
+          fuel,
+          transmission,
+          passengers,
+          doors,
+          mileage,
+          description,
+          features,
+          operational_status,
+        ]
+      properties:
+        category_id: { type: string, format: uuid }
+        branch_id: { type: string, format: uuid }
+        plate:
+          {
+            type: string,
+            description: Padrão antigo/Mercosul,
+            normalizado em maiúsculas sem hífen.,
+          }
+        chassis:
+          {
+            type: [string, "null"],
+            maxLength: 17,
+            description: "Se preenchido, 17 caracteres sem I/O/Q.",
+          }
+        renavam:
+          {
+            type: [string, "null"],
+            maxLength: 11,
+            description: "Se preenchido, formato numérico de 9 a 11 posições, sem consulta externa.",
+          }
+        make: { type: string, minLength: 1, maxLength: 80 }
+        model: { type: string, minLength: 1, maxLength: 100 }
+        version: { type: string, maxLength: 100 }
+        manufacture_year: { type: integer, minimum: 1900, maximum: 2200 }
+        model_year:
+          {
+            type: integer,
+            minimum: 1900,
+            maximum: 2200,
+            description: Entre fabricação e fabricação + 2.,
+          }
+        color: { type: string, minLength: 1, maxLength: 60 }
+        fuel:
+          {
+            type: string,
+            enum: [FLEX, GASOLINE, ETHANOL, DIESEL, ELECTRIC, HYBRID, CNG],
+          }
+        transmission: { type: string, enum: [MANUAL, AUTOMATIC, CVT] }
+        passengers: { type: integer, minimum: 1, maximum: 100 }
+        doors: { type: integer, minimum: 0, maximum: 10 }
+        mileage:
+          {
+            type: integer,
+            minimum: 0,
+            maximum: 999999999,
+            description: Não pode diminuir.,
+          }
+        description: { type: string, maxLength: 5000 }
+        features: { $ref: "#/components/schemas/Features" }
+        operational_status:
+          { type: string, enum: [ACTIVE, INACTIVE, MAINTENANCE, RETIRED] }
+        acquired_on:
+          { type: [string, "null"], description: YYYY-MM-DD ou vazio. }
+        internal_notes: { type: [string, "null"], maxLength: 2000 }
+    CustomerInput:
+      unevaluatedProperties: false
+      allOf:
+        - $ref: "#/components/schemas/AddressFields"
+        - type: object
+          required: [person_type, name, tax_document, email, phone]
+          properties:
+            person_type: { type: string, enum: [PF, PJ] }
+            name: { type: string, minLength: 1, maxLength: 200 }
+            tax_document:
+              {
+                type: string,
+                maxLength: 30,
+                description: CPF/CNPJ com DV válido; CNPJ numérico e alfanumérico. Aceita pontuação.,
+              }
+            email: { type: string, format: email, maxLength: 254 }
+            phone:
+              {
+                type: string,
+                maxLength: 30,
+                description: Telefone brasileiro com DDD; aceita pontuação e +55.,
+              }
+            birth_date:
+              {
+                type: [string, "null"],
+                description: YYYY-MM-DD não futuro para PF; PJ deve omitir/enviar vazio ou null.,
+              }
+            notes: { type: [string, "null"], maxLength: 2000 }
+    DriverInput:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          customer_id,
+          name,
+          cpf,
+          license_number,
+          license_category,
+          license_expires_on,
+        ]
+      properties:
+        customer_id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        cpf:
+          {
+            type: string,
+            maxLength: 20,
+            description: CPF normalizado com DV válido.,
+          }
+        license_number:
+          {
+            type: string,
+            pattern: "^[0-9]{11}$",
+            description: "Formato, sem sequência repetida. Não verifica autenticidade ou DV de CNH.",
+          }
+        license_category:
+          { type: string, enum: [ACC, A, B, C, D, E, AB, AC, AD, AE] }
+        license_expires_on:
+          {
+            type: string,
+            format: date,
+            description: Data civil válida; vencimento aparece como alerta e não autoriza retirada.,
+          }
+    BranchInput:
+      unevaluatedProperties: false
+      allOf:
+        - $ref: "#/components/schemas/AddressFields"
+        - type: object
+          required: [name, active]
+          properties:
+            name: { type: string, minLength: 1, maxLength: 120 }
+            active: { type: boolean }
+    RegistryInput:
+      description: Schema deve corresponder ao resource da URL. Campos de endereço de customers/branches entram no nível raiz e são persistidos como address. Metadados internos são recusados.
+      oneOf:
+        - $ref: "#/components/schemas/CategoryInput"
+        - $ref: "#/components/schemas/VehicleInput"
+        - $ref: "#/components/schemas/CustomerInput"
+        - $ref: "#/components/schemas/DriverInput"
+        - $ref: "#/components/schemas/BranchInput"
+        - $ref: "./commercial.openapi.yaml#/components/schemas/PlanInput"
+        - $ref: "./commercial.openapi.yaml#/components/schemas/PriceInput"
+        - $ref: "./commercial.openapi.yaml#/components/schemas/ServiceInput"

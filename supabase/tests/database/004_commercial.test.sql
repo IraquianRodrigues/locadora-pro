@@ -1,0 +1,14 @@
+begin;
+select plan(10);
+select ok(has_function_privilege('authenticated','public.staff_pricing_context(jsonb)','EXECUTE'),'Equipe pode pedir contexto tarifário com RBAC interno');
+select ok(not has_function_privilege('anon','public.staff_pricing_context(jsonb)','EXECUTE'),'Anônimo não consulta preços internos');
+select ok(not has_function_privilege('authenticated','public.persist_staff_quote(uuid,uuid,jsonb,text,jsonb,text)','EXECUTE'),'Navegador não grava totais');
+select ok(has_function_privilege('service_role','public.persist_staff_quote(uuid,uuid,jsonb,text,jsonb,text)','EXECUTE'),'Backend persiste cálculo validado');
+select ok(not has_function_privilege('authenticated','public.expire_pending_reservations(integer)','EXECUTE'),'Expiração restrita ao job/backend');
+select ok(not has_function_privilege('anon','public.reservation_status_by_token(uuid,text)','EXECUTE'),'Consulta por token passa pelo limitador do backend');
+select ok(not has_function_privilege('authenticated','app_private.pricing_context(jsonb)','EXECUTE'),'Helper tarifário não ignora o RBAC');
+select ok(not has_table_privilege('authenticated','public.pricing_rules','UPDATE'),'Histórico de regras não é editável');
+select ok(exists(select 1 from pg_attribute where attrelid='public.reservations'::regclass and attname='source_quote_id' and attnotnull),'Origem única da cotação é obrigatória');
+select ok(exists(select 1 from pg_constraint where conrelid='public.rate_plan_prices'::regclass and conname='vehicle_price_no_overlap' and contype='x'),'Tarifas específicas não se sobrepõem');
+select * from finish();
+rollback;

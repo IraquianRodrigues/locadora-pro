@@ -1,0 +1,18 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+set local search_path=public,extensions;
+select no_plan();
+select has_table('public','registry_files','Registro de arquivos criado');
+select ok((select relrowsecurity from pg_class where oid='public.registry_files'::regclass),'Arquivos têm RLS');
+select ok(not has_table_privilege('authenticated','public.registry_files','INSERT,UPDATE,DELETE'),'Sem escrita direta em metadados');
+select ok(not has_table_privilege('anon','public.registry_files','SELECT'),'Anônimo não lê metadados');
+select ok(app_private.valid_br_address('{"postal_code":"60000000","street":"Rua teste","number":"1","district":"Centro","city":"Fortaleza","state":"CE"}'),'Endereço brasileiro válido');
+select ok(not app_private.valid_br_address('{}'),'Endereço vazio negado');
+select ok(not app_private.valid_br_address('{"postal_code":"60000","street":"Rua teste","number":"1","district":"Centro","city":"Fortaleza","state":"XX"}'),'CEP/UF inválidos negados');
+insert into public.vehicle_categories(name,capacity) values('Categoria pgTAP F4',5);
+select throws_ok($$insert into public.vehicle_categories(name,capacity) values('categoria pgtap f4',5)$$,'23505',null,'Nome de categoria único sem diferença de caixa');
+update public.vehicle_categories set archived_at=clock_timestamp() where name='Categoria pgTAP F4';
+select throws_ok($$update public.vehicle_categories set description='Alterado arquivado' where name='Categoria pgTAP F4'$$,'23514',null,'Cadastro arquivado não editável');
+select lives_ok($$update public.vehicle_categories set archived_at=null where name='Categoria pgTAP F4'$$,'Restauração permitida');
+select * from finish();
+rollback;

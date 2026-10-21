@@ -1,0 +1,20 @@
+-- Complementa tests/integration/business.mjs na stack real (PostgreSQL 17/Auth/Storage).
+begin;
+select plan(15);
+select ok(not has_function_privilege('anon','public.finance_command(jsonb,text)','EXECUTE'),'Financeiro não é público');
+select ok(has_function_privilege('authenticated','public.finance_command(jsonb,text)','EXECUTE'),'Financeiro via RPC com permissão corrente');
+select ok(not has_table_privilege('authenticated','public.charge_adjustments','INSERT,UPDATE,DELETE'),'Ajustes somente por transação');
+select ok(not has_table_privilege('authenticated','public.deposit_application_reversals','INSERT,UPDATE,DELETE'),'Aplicação compensada somente por transação');
+select ok(not has_table_privilege('authenticated','public.expense_reversals','INSERT,UPDATE,DELETE'),'Despesas compensadas somente por transação');
+select ok(not has_function_privilege('anon','public.finance_options(text)','EXECUTE'),'Projeções mínimas exigem financeiro');
+select ok(not has_function_privilege('authenticated','app_private.deposit_balance(uuid)','EXECUTE'),'Saldo interno não é uma API livre');
+select ok(not has_function_privilege('anon','public.maintenance_command(jsonb,text)','EXECUTE'),'Manutenção exige funcionário');
+select ok(not has_table_privilege('authenticated','public.maintenance_records','INSERT,UPDATE,DELETE'),'Equipe não ignora ocupação e versão');
+select ok(not has_table_privilege('authenticated','public.maintenance_events','INSERT,UPDATE,DELETE'),'Histórico de manutenção protegido');
+select ok(not has_function_privilege('anon','public.business_report(text,timestamptz,timestamptz,integer,integer)','EXECUTE'),'Relatórios são privados');
+select ok(not has_function_privilege('authenticated','public.dispatch_notification_events(integer)','EXECUTE'),'Dispatch restrito ao worker');
+select ok(has_function_privilege('service_role','public.dispatch_notification_events(integer)','EXECUTE'),'Worker tem dispatch delimitado');
+select ok(not has_function_privilege('authenticated','public.claim_email_notifications(integer,text)','EXECUTE'),'Equipe não toma lease de email');
+select ok(not has_table_privilege('authenticated','public.notification_templates','INSERT,UPDATE,DELETE'),'Templates versionados por RPC');
+select * from finish();
+rollback;

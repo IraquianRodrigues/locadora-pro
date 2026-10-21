@@ -1,0 +1,164 @@
+{
+  "project_ref": "zfvqvzhajnjwpsbajqux",
+  "postgres": "17.11",
+  "applied_on": "2026-10-20",
+  "history_alignment": "Versions aligned to local files only after exact content MD5 comparison; SQL bodies unchanged.",
+  "migrations": [
+    {
+      "name": "foundation",
+      "version": "20261019000100",
+      "hash": "8dc9dfa84bcc28228da16950c2c97b9c",
+      "initial_remote_version": "20261020230219"
+    },
+    {
+      "name": "identity_settings",
+      "version": "20261019000200",
+      "hash": "3a0abcf656e9d592c04067dae0021640",
+      "initial_remote_version": "20261020230229"
+    },
+    {
+      "name": "fleet",
+      "version": "20261019000300",
+      "hash": "45e22d326dfe148e8f559525155a087d",
+      "initial_remote_version": "20261020230233"
+    },
+    {
+      "name": "customers",
+      "version": "20261019000400",
+      "hash": "610abafdd769595f4905b5a553d335e0",
+      "initial_remote_version": "20261020230236"
+    },
+    {
+      "name": "pricing",
+      "version": "20261019000500",
+      "hash": "47c13e250807d4be4d82253115954242",
+      "initial_remote_version": "20261020230240"
+    },
+    {
+      "name": "reservations_rentals",
+      "version": "20261019000600",
+      "hash": "6f923870daee6efed3c447a3382ae456",
+      "initial_remote_version": "20261020230244"
+    },
+    {
+      "name": "allocations",
+      "version": "20261019000700",
+      "hash": "49f54317f7afd4ffa79fd7858c1e8f7f",
+      "initial_remote_version": "20261020230248"
+    },
+    {
+      "name": "evidence",
+      "version": "20261019000800",
+      "hash": "9d0bbe78893a2e0d13f3d4774b375cf8",
+      "initial_remote_version": "20261020230251"
+    },
+    {
+      "name": "finance",
+      "version": "20261019000900",
+      "hash": "2599579669181da47d532fcf9f73d5f8",
+      "initial_remote_version": "20261020230254"
+    },
+    {
+      "name": "audit_outbox",
+      "version": "20261019001000",
+      "hash": "88658487774438d6a98efab4c89eea9b",
+      "initial_remote_version": "20261020230300"
+    },
+    {
+      "name": "transactional_functions",
+      "version": "20261019001100",
+      "hash": "ecee35dccccf57f3fad3b974454ac003",
+      "initial_remote_version": "20261020230327"
+    },
+    {
+      "name": "storage_projections",
+      "version": "20261019001200",
+      "hash": "cbe64e1ad056c65ce534c964be36580f",
+      "initial_remote_version": "20261020230332"
+    },
+    {
+      "name": "staff_auth",
+      "version": "20261019001300",
+      "hash": "69dac3d360da5de095eaf9fd29c94a4c",
+      "initial_remote_version": "20261020230336"
+    },
+    {
+      "name": "registry_integrity",
+      "version": "20261019001400",
+      "hash": "189520a00f7c3d6e3c6c1853e12a8f82",
+      "initial_remote_version": "20261020230359"
+    },
+    {
+      "name": "registry_storage",
+      "version": "20261019001500",
+      "hash": "c799793b978b8cb543ed5e0b11fa5c6e",
+      "initial_remote_version": "20261020230403"
+    },
+    {
+      "name": "commercial_pricing",
+      "version": "20261020001600",
+      "hash": "5a7ee05b1c0800fcab15aa1636ae74fd",
+      "initial_remote_version": "20261020230407"
+    },
+    {
+      "name": "reservation_workflow",
+      "version": "20261020001700",
+      "hash": "6509a0adde73ea42719204e8f9bf6475",
+      "initial_remote_version": "20261020230518"
+    },
+    {
+      "name": "buffered_occupancy",
+      "version": "20261020001800",
+      "hash": "1a1ceb96a433741fbd6fd4a0004c4578",
+      "initial_remote_version": "20261020230521"
+    },
+    {
+      "name": "public_catalog",
+      "version": "20261020001900",
+      "hash": "b9b87aa82ebf35673af0ff869f7c78bb",
+      "initial_remote_version": "20261020230557"
+    },
+    {
+      "name": "public_booking",
+      "version": "20261020002000",
+      "hash": "0b48d82f844259ac2241fed960adee60",
+      "initial_remote_version": "20261020230602"
+    },
+    {
+      "name": "rental_lifecycle",
+      "version": "20261020155701",
+      "hash": "9dfaa26401f711c82a59362c6429eab9",
+      "initial_remote_version": "20261020230612"
+    },
+    {
+      "name": "financial_operations",
+      "version": "20261020164830",
+      "hash": "7c4f6bbda167e5d877f651371a3204aa",
+      "initial_remote_version": "20261020230629"
+    },
+    {
+      "name": "maintenance_reporting",
+      "version": "20261020164833",
+      "hash": "6a9e585f7b1d0f87092a7aac6487aa79",
+      "initial_remote_version": "20261020230634"
+    },
+    {
+      "name": "notification_delivery",
+      "version": "20261020164836",
+      "hash": "b0add7c05bfd215dfe46a4522fb4808d",
+      "initial_remote_version": "20261020230700"
+    },
+    {
+      "name": "production_hardening",
+      "version": "20261020223222",
+      "hash": "f7f20851fa01079e8a4736b27586ea16",
+      "initial_remote_version": "20261020230703"
+    },
+    {
+      "name": "finance_projection_security",
+      "version": "20261020230732",
+      "hash": "365fda8c74c71c3bf4c1d6a29ea5ac61",
+      "initial_remote_version": "20261020231350"
+    }
+  ]
+}

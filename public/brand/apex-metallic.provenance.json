@@ -1,0 +1,13 @@
+{
+  "asset": "apex-metallic.png",
+  "width": 1774,
+  "height": 887,
+  "format": "PNG",
+  "generation": "Built-in image_gen",
+  "use": "Decorative brand material study for Apex; not a fleet photograph",
+  "original": "C:/Users/algum/.codex/generated_images/01a15c0e-c2d8-71d1-8ee9-391a850d5b2b/exec-d303fff8-b7db-403e-b9d4-b63086a516e8.png",
+  "promptFile": ".impeccable/apex-metallic-prompt.txt",
+  "prompt": "Use case: product-mockup\nAsset type: decorative landscape brand photograph for the Apex Brazilian vehicle rental website and authentication screens; imagery is an abstract brand material, never an actual fleet photograph.\nPrimary request: premium automotive studio photograph, abstract extreme close-up of a deep burgundy metallic red painted curved automotive body panel.\nScene/backdrop: pristine white photography studio, with white studio ground softly visible along one edge.\nSubject: a single unbranded curved metallic-painted body panel, cropped extremely close so it reads as rich sculpted material rather than a recognizable car or inventory item.\nStyle/medium: exceptionally realistic high-end automotive studio photography.\nComposition/framing: horizontal landscape image, wide cinematic crop; one clean shoulder crease flowing diagonally through the composition, broad elegant curved surfaces with quiet visual space; no full vehicle.\nLighting/mood: luminous elongated softbox reflections following the single shoulder crease; controlled premium studio illumination, subtle bright specular highlights, rich deep-red shadows, polished and refined.\nColor palette: deep burgundy metallic red, nuanced red highlights and white studio reflections.\nMaterials/textures: realistic fine metallic paint flakes visible in the focused surface, flawless glossy clear coat, smooth curved metal.\nConstraints: no text, no logo, no numbers, no watermark, no visible car brand, no complete car, no wheels, no lights, no grille, no collage, no UI, no claims, no people, no multiple panels or decorative patterns. Preserve the restraint of a single photographic surface study.",
+  "promptEmbedded": "PNG tEXt using Impeccable embed-prompt",
+  "visuallyReviewed": true
+}

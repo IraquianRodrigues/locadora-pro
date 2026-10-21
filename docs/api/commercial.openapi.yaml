@@ -1,0 +1,549 @@
+openapi: 3.1.0
+info:
+  title: Locadora Pro — Tarifas, cotações e reservas
+  version: 0.6.0
+  description: >-
+    Implementação da Fase 5. Valores calculados no servidor, snapshot imutável,
+    análise manual e idempotência por ator/operação. Sem submissão pública nesta fase.
+    Mutações exigem Origin igual à URL canônica. JSON limitado a 64 KiB.
+    Respostas private, no-store. Política comercial e limites em ../reservations.md.
+servers:
+  - url: /api/v1
+security:
+  - StaffCookie: []
+paths:
+  /admin/quotes:
+    post:
+      operationId: createStaffQuote
+      summary: Calcular e congelar cotação; reservations.request e pricing.read
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [input, idempotency_key]
+              properties:
+                input: { $ref: "#/components/schemas/BookingInput" }
+                idempotency_key: { $ref: "#/components/schemas/Key" }
+      responses:
+        "201":
+          description: Cotação persistida ou resultado anterior da mesma chave/payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Quote" }
+        default: { $ref: "#/components/responses/Error" }
+  /admin/quotes/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      operationId: getStaffQuote
+      summary: Consultar snapshot; reservations.read e pricing.read
+      responses:
+        "200":
+          description: Cotação e itens imutáveis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Quote" }
+        default: { $ref: "#/components/responses/Error" }
+  /admin/availability:
+    post:
+      operationId: getStaffAvailability
+      summary: Disponibilidade indicativa; reservations.read, vehicles.read e pricing.read
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookingInput" }
+      responses:
+        "200":
+          description: Quantidade disponível para o alvo/unidade, incluindo intervalo operacional
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    required: [available, indicative, occupied_until]
+                    properties:
+                      available: { type: integer, minimum: 0 }
+                      indicative: { const: true }
+                      occupied_until: { type: string, format: date-time }
+        default: { $ref: "#/components/responses/Error" }
+  /admin/reservations:
+    get:
+      operationId: listStaffReservations
+      summary: Listagem com reservations.read
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/Status" }
+      responses:
+        "200":
+          description: Lista por created_at decrescente e id, até 20 registros
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ReservationSummary" }
+                  meta:
+                    type: object
+                    properties:
+                      page: { type: integer }
+                      pageSize: { const: 20 }
+                      total: { type: integer, minimum: 0 }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: requestStaffReservation
+      summary: Solicitar análise; reservations.request e pricing.read
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [quote_id, customer_id, idempotency_key]
+              properties:
+                quote_id: { type: string, format: uuid }
+                customer_id: { type: string, format: uuid }
+                idempotency_key: { $ref: "#/components/schemas/Key" }
+      responses:
+        "201":
+          description: REQUESTED com token; repetição da mesma chave retorna o mesmo token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    required: [id, status, lookup_token]
+                    properties:
+                      id: { type: string, format: uuid }
+                      status: { const: REQUESTED }
+                      lookup_token:
+                        { type: string, pattern: "^[A-Za-z0-9_-]{43}$" }
+        default: { $ref: "#/components/responses/Error" }
+  /admin/reservations/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      operationId: getStaffReservation
+      summary: Detalhe, logística, item, ocupação e histórico; reservations.read
+      responses:
+        "200":
+          description: Detalhe sem lookup_token_hash; quote obtida em endpoint separado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    allOf:
+                      - $ref: "#/components/schemas/ReservationSummary"
+                      - type: object
+                        properties:
+                          customer_id: { type: string, format: uuid }
+                          branch_id: { type: string, format: uuid }
+                          quote_id: { type: string, format: uuid }
+                          analysis_expired: { type: boolean }
+                          reservation_items:
+                            { type: array, items: { type: object } }
+                          reservation_locations:
+                            { type: array, items: { type: object } }
+                          reservation_status_history:
+                            { type: array, items: { type: object } }
+                          vehicle_allocations:
+                            { type: array, items: { type: object } }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: decideStaffReservation
+      summary: Comando de decisão com versão e motivo; status não é editável livremente
+      description: >-
+        UNDER_REVIEW exige reservations.review; CONFIRMED/REJECTED exigem
+        reservations.approve; CANCELLED exige cancel_pending ou cancel_confirmed
+        conforme o estado. Reserva, histórico, ocupação e outbox na mesma transação.
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_version, target, reason, idempotency_key]
+              properties:
+                expected_version: { type: integer, minimum: 1 }
+                target:
+                  {
+                    type: string,
+                    enum: [UNDER_REVIEW, CONFIRMED, REJECTED, CANCELLED],
+                  }
+                reason: { type: string, minLength: 5, maxLength: 500 }
+                idempotency_key: { $ref: "#/components/schemas/Key" }
+      responses:
+        "200":
+          description: Resultado da decisão ou replay idempotente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string, format: uuid }
+                      status: { $ref: "#/components/schemas/Status" }
+        default: { $ref: "#/components/responses/Error" }
+  /admin/reservations/expire:
+    post:
+      operationId: expireStaffReservations
+      summary: Executar lote de até 100 vencidas; reservations.approve
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      responses:
+        "200":
+          description: Quantidade efetivamente expirada; repetir não duplica eventos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      expired: { type: integer, minimum: 0, maximum: 100 }
+        default: { $ref: "#/components/responses/Error" }
+  /public/reservations/{id}/status:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      operationId: getReservationStatusByToken
+      summary: Consulta mínima por token, com limite distribuído e sem PII
+      security: []
+      parameters:
+        - name: X-Reservation-Token
+          in: header
+          required: true
+          schema: { type: string, pattern: "^[A-Za-z0-9_-]{43}$" }
+      responses:
+        "200":
+          description: Apenas id/status/updated_at
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [id, status, updated_at]
+                    properties:
+                      id: { type: string, format: uuid }
+                      status: { $ref: "#/components/schemas/Status" }
+                      updated_at: { type: string, format: date-time }
+        "404":
+          description: "Referência ou token ausente/incorreto/expirado, resposta uniforme"
+        "429":
+          {
+            description: Quota global ou por hash excedida em janela de 15 minutos,
+          }
+        "503":
+          { description: Supabase ou limitador indisponível; falha fechada }
+components:
+  securitySchemes:
+    StaffCookie:
+      type: apiKey
+      in: cookie
+      name: sb-<project-ref>-auth-token
+      description: Cookie SSR HttpOnly, podendo estar dividido em chunks; sessão e RBAC atuais.
+  parameters:
+    Origin:
+      name: Origin
+      in: header
+      required: true
+      schema: { type: string, format: uri }
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Error:
+      description: >-
+        400 entrada/cálculo inválido; 401 sessão ausente; 403 sem permissão/Origin;
+        404 ausente; 409 duplicidade, regra, edição ou ocupação concorrente;
+        413 corpo excessivo; 503 configuração/banco indisponível.
+        Proxy usa AUTH_UNAVAILABLE sem configuração. Detalhes SQL nunca retornam.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                required: [code, message]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+                  requestId: { type: string, format: uuid }
+  schemas:
+    Money:
+      type: string
+      pattern: "^(0|[1-9][0-9]{0,9})([.,][0-9]{1,2})?$"
+      description: BRL não negativo; resposta sempre decimal com ponto e duas casas.
+    Key:
+      type: string
+      minLength: 16
+      maxLength: 200
+      pattern: "^[A-Za-z0-9_-]+$"
+    Status:
+      type: string
+      enum:
+        [
+          REQUESTED,
+          UNDER_REVIEW,
+          CONFIRMED,
+          REJECTED,
+          CANCELLED,
+          EXPIRED,
+          CONVERTED,
+        ]
+    BookingInput:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          rate_plan_id,
+          branch_id,
+          category_id,
+          vehicle_id,
+          customer_id,
+          start_at,
+          end_at,
+          additional_services,
+          pickup_mode,
+          return_mode,
+          pickup_address,
+          return_address,
+          instructions,
+          discount_amount,
+          discount_reason,
+        ]
+      description: >-
+        Exatamente um de category_id/vehicle_id deve ser não nulo. Período futuro,
+        positivo e até 3660 dias. Endereço obrigatório só para DELIVERY/COLLECTION.
+        Desconto positivo exige motivo mínimo de 5 caracteres e permissão/limite.
+      properties:
+        rate_plan_id: { type: string, format: uuid }
+        branch_id: { type: string, format: uuid }
+        category_id: { type: [string, "null"], format: uuid }
+        vehicle_id: { type: [string, "null"], format: uuid }
+        customer_id: { type: [string, "null"], format: uuid }
+        start_at: { type: string, format: date-time }
+        end_at: { type: string, format: date-time }
+        additional_services:
+          type: array
+          maxItems: 20
+          description: IDs únicos e ativos.
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, quantity]
+            properties:
+              id: { type: string, format: uuid }
+              quantity: { type: integer, minimum: 1, maximum: 100 }
+        pickup_mode: { enum: [BRANCH, DELIVERY] }
+        return_mode: { enum: [BRANCH, COLLECTION] }
+        pickup_address:
+          oneOf:
+            - {
+                $ref: "./registry.openapi.yaml#/components/schemas/AddressFields",
+              }
+            - { type: "null" }
+        return_address:
+          oneOf:
+            - {
+                $ref: "./registry.openapi.yaml#/components/schemas/AddressFields",
+              }
+            - { type: "null" }
+        instructions: { type: string, maxLength: 500 }
+        discount_amount: { $ref: "#/components/schemas/Money" }
+        discount_reason: { type: string, maxLength: 500 }
+    Quote:
+      type: object
+      required: [id, total, deposit, expires_at, rules_snapshot, quote_items]
+      properties:
+        id: { type: string, format: uuid }
+        total: { $ref: "#/components/schemas/Money" }
+        deposit: { $ref: "#/components/schemas/Money" }
+        expires_at: { type: string, format: date-time }
+        rules_snapshot:
+          {
+            type: object,
+            description: "Engine v1, entrada, catálogo/fingerprint, política, cálculo e ator. Contém dados internos/logística.",
+          }
+        quote_items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              kind: { enum: [RENTAL, SERVICE, DELIVERY, COLLECTION, DISCOUNT] }
+              description: { type: string }
+              quantity: { type: string }
+              unit_amount: { $ref: "#/components/schemas/Money" }
+              total: { $ref: "#/components/schemas/Money" }
+    ReservationSummary:
+      type: object
+      required: [id, status, start_at, end_at, expires_at, version]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/Status" }
+        start_at: { type: string, format: date-time }
+        end_at: { type: string, format: date-time }
+        expires_at: { type: [string, "null"], format: date-time }
+        version: { type: integer, minimum: 1 }
+    PlanInput:
+      type: object
+      additionalProperties: false
+      description: >-
+        Campos da política são planos na entrada; backend persiste policy.engine=v1.
+        MONTH exige month_mode; COMMERCIAL exige commercial_month_days.
+        Demais modos deixam dias nulo/vazio. Planos DAY/WEEK deixam ambos nulo/vazio.
+        DAY_HOUR/WEEK_DAY_HOUR exigem day_amount/hour_amount; WEEK_DAY_HOUR exige week_amount.
+      required:
+        [
+          name,
+          period_unit,
+          active,
+          timezone,
+          duration_basis,
+          strategy,
+          minimum_periods,
+          tolerance_minutes,
+          hour_increment_minutes,
+          rounding,
+          deposit_amount,
+          delivery_enabled,
+          delivery_amount,
+          collection_enabled,
+          collection_amount,
+          discount_scope,
+          admin_discount_bps,
+          manager_discount_bps,
+          turnaround_minutes,
+          quote_validity_minutes,
+          request_validity_minutes,
+          lookup_validity_days,
+        ]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        period_unit: { enum: [DAY, WEEK, MONTH] }
+        month_mode: { enum: [CALENDAR, COMMERCIAL, "", null] }
+        commercial_month_days:
+          { type: [integer, "null"], minimum: 1, maximum: 366 }
+        active: { type: boolean }
+        public_enabled:
+          {
+            type: boolean,
+            default: false,
+            description: Publicação explícita do plano no site,
+          }
+        timezone: { type: string, description: Fuso IANA válido }
+        duration_basis: { enum: [ELAPSED, LOCAL_DAYS] }
+        strategy: { enum: [CEIL_PERIOD, DAY_HOUR, WEEK_DAY_HOUR] }
+        minimum_periods: { type: integer, minimum: 1, maximum: 10000 }
+        tolerance_minutes: { type: integer, minimum: 0, maximum: 1440 }
+        hour_increment_minutes: { enum: [15, 30, 60] }
+        rounding: { enum: [HALF_UP, CEIL, TRUNCATE] }
+        week_amount:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/Money" },
+                { type: "null" },
+                { const: "" },
+              ],
+          }
+        day_amount:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/Money" },
+                { type: "null" },
+                { const: "" },
+              ],
+          }
+        hour_amount:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/Money" },
+                { type: "null" },
+                { const: "" },
+              ],
+          }
+        deposit_amount: { $ref: "#/components/schemas/Money" }
+        delivery_enabled: { type: boolean }
+        delivery_amount: { $ref: "#/components/schemas/Money" }
+        collection_enabled: { type: boolean }
+        collection_amount: { $ref: "#/components/schemas/Money" }
+        discount_scope: { enum: [RENTAL, RENTAL_AND_SERVICES] }
+        admin_discount_bps: { type: integer, minimum: 0, maximum: 10000 }
+        manager_discount_bps: { type: integer, minimum: 0, maximum: 10000 }
+        turnaround_minutes: { type: integer, minimum: 0, maximum: 1440 }
+        quote_validity_minutes: { type: integer, minimum: 5, maximum: 10080 }
+        request_validity_minutes: { type: integer, minimum: 5, maximum: 43200 }
+        lookup_validity_days: { type: integer, minimum: 1, maximum: 365 }
+    PriceInput:
+      type: object
+      additionalProperties: false
+      required: [name, rate_plan_id, valid_from, valid_to, amount]
+      description: Exatamente uma categoria/veículo; fim posterior ao início, instantes com offset.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        rate_plan_id: { type: string, format: uuid }
+        category_id: { type: [string, "null"], format: uuid }
+        vehicle_id: { type: [string, "null"], format: uuid }
+        valid_from: { type: string, format: date-time }
+        valid_to: { type: string, format: date-time }
+        amount: { $ref: "#/components/schemas/Money" }
+    ServiceInput:
+      type: object
+      additionalProperties: false
+      required: [name, unit, amount, active]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        unit: { enum: [ONCE, HOUR, DAY, WEEK, MONTH] }
+        amount: { $ref: "#/components/schemas/Money" }
+        active: { type: boolean }
+        public_enabled:
+          {
+            type: boolean,
+            default: false,
+            description: Publicação explícita do adicional no site,
+          }
