@@ -1,6 +1,6 @@
 # Configurar e verificar o Supabase
 
-**Estado remoto atual — 20/10/2026:** o projeto autorizado já recebeu 26 migrations, com 64 tabelas sob RLS e quatro buckets privados. A suíte isolada passou com 81 cenários; dez verificações SQL de leitura passaram no PostgreSQL 17.11 remoto. Auth, chave de servidor e primeiro ADMIN ainda aguardam login no painel. Consulte [supabase-project.md](../supabase-project.md); os estados por fase abaixo são históricos. Não repetir push/reset das migrations aplicadas.
+**Estado remoto atual — 22/10/2026:** o projeto autorizado já recebeu 26 migrations, com 64 tabelas sob RLS e quatro buckets privados. A suíte isolada passou com 81 cenários; dez verificações SQL de leitura passaram no PostgreSQL 17.11 remoto. Auth básico e chave de servidor foram configurados, o primeiro ADMIN está ativo e seu primeiro login real foi confirmado. Renovação/logout, demais cargos e fluxos de negócio ainda precisam de homologação; recuperação de senha foi adiada por decisão do usuário sobre SMTP. Consulte [supabase-project.md](../supabase-project.md); os estados por fase abaixo são históricos. Não repetir push/reset das migrations aplicadas.
 
 Atualização da Fase 9: há **25 migrations e 64 tabelas**, aplicadas do zero em PostgreSQL 18.4 isolado, com 80 cenários aprovados. A migration 25 acrescenta índices e prontidão privada. pgTAP 008, workflow PostgreSQL 17 e smoke Auth/SSR/PostgREST/Storage foram preparados, mas não executados sem Docker/stack. Procedimento atual em [phase-9.md](../phase-9.md). O estado por fase abaixo é histórico.
 
