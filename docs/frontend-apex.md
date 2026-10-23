@@ -80,6 +80,18 @@ Para financeiro, manutenção e relatórios, a revisão independente retornou `s
 
 ## Dependências de implantação
 
+### Site público e Magic UI — 23/10/2026
+
+A apresentação pública foi refinada com prioridade em **consultar a frota e solicitar reserva**, preservando a direção Apex, o painel e as regras comerciais. A home recebe busca GET por marca/modelo, ações principais mais claras, seção do processo de locação e rodapé com navegação agrupada. Catálogo, categorias, cotação, consulta por token, contato e políticas compartilham o mesmo tratamento de títulos e espaçamento. Os cartões mostram características reais, ausência de foto e acesso à cotação; não apresentam valores ou disponibilidade presumidos.
+
+Foram incorporados localmente dois componentes do [Magic UI](https://magicui.design/docs/installation): [Interactive Hover Button](https://magicui.design/docs/components/interactive-hover-button) e [Shine Border](https://magicui.design/docs/components/shine-border), adaptados à identidade Apex em `src/components/magicui`. A licença MIT original acompanha os componentes. A integração segue o modelo de código-fonte da biblioteca, sem adicionar dependências npm. Os efeitos usam CSS, respeitam redução de movimento e mantêm conteúdo visível desde o primeiro render. Links, botões e formulários preservam sua semântica e foco de teclado.
+
+Para revisar com dados ilustrativos, abra `http://127.0.0.1:3230/publico` após iniciar `npm run preview:frontend`. `?empty=1` mostra catálogo vazio e `?preparacao=1` mostra preparação. A faixa de demonstração identifica esse ambiente; veículos não são ofertas reais e não há gravação, sessão ou comunicação com o banco. Os destinos do catálogo e reserva continuam apontando para a aplicação local real. No site real, a busca da home encaminha `q` para `/catalogo` e preserva os filtros existentes.
+
+Passaram build de produção/TypeScript, lint, segurança estática, **80 testes de interface** (76 anteriores e quatro novos) e **dois E2E de reservas com adaptadores HTTP**. A cobertura nova inclui estados publicado/vazio/preparação, Axe, overflow, menu móvel, foco e redução de movimento. A busca GET também foi exercitada no navegador. Banco, testes unitários e suíte E2E integral não foram repetidos nesta alteração de apresentação. A matriz visual contém 23 capturas de viewport em `.impeccable/review/public-magicui`, com dimensões e limites registrados em `capture-manifest.json` e `capture-notes.md`.
+
+Na observação local desta revisão, o site estava publicado, mas sem veículos/categorias disponíveis, e as solicitações online estavam indisponíveis por configuração. As políticas exibiam textos provisórios. Antes do lançamento: cadastrar e publicar frota, fotos autorizadas, planos/preços e serviços reais; revisar contatos, condições e privacidade; configurar o antispam conforme `docs/public-site.md` e seguir `docs/deployment.md`. Nenhum dado, Auth, chave, política RLS ou publicação remota foi alterado nesta etapa. O estado atual de Auth e do primeiro administrador está documentado em `docs/supabase-project.md`; as referências abaixo a adiamento descrevem as etapas visuais anteriores.
+
 ### Extensão administrativa e cadastros comerciais — 21/10/2026
 
 Notificações, acessos da equipe e publicação do site receberam a identidade Apex. Avisos apresentam leitura explícita e contagem da página; acessos mostram cargo/situação antes da edição; configurações separam regras, versões imutáveis e filas. Falhas de leitura/processamento são recuperáveis e não simulam sucesso. A proteção do último administrador e as ações de servidor foram preservadas.

@@ -9,6 +9,7 @@ import { registry } from "../../src/lib/registry/config";
 import { BusinessPreview } from "./business";
 import { AdministrationPreview } from "./administration";
 import { CommercialPreview } from "./commercial";
+import { PublicSitePreview } from "./public-site";
 import { RentalList } from "../../src/components/rentals/rental-list";
 import { RentalDetail } from "../../src/components/rentals/rental-detail";
 import { RentalSettingsForm } from "../../src/components/rentals/settings-form";
@@ -95,6 +96,13 @@ export function PreviewApp({ location }: { location: string }) {
     record = parts[2],
     empty = url.searchParams.has("empty"),
     readonly = url.searchParams.has("readonly");
+  if (url.pathname === "/publico")
+    return (
+      <PublicSitePreview
+        empty={empty}
+        preparation={url.searchParams.has("preparacao")}
+      />
+    );
   const access = readonly
     ? permissions.filter((p) => p !== "settings.manage" && p !== "users.manage")
     : [

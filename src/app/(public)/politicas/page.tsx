@@ -1,4 +1,5 @@
 import { getSite } from "@/lib/public/catalog";
+import { PublicPageIntro } from "@/components/public/page-intro";
 export const dynamic = "force-dynamic";
 export default async function Policies() {
   let site;
@@ -8,8 +9,8 @@ export default async function Policies() {
     site = null;
   }
   return (
-    <main id="conteudo" className="mx-auto max-w-4xl px-5 py-12">
-      <h1 className="text-3xl font-bold">Condições de locação e privacidade</h1>
+    <main id="conteudo" className="public-page public-page-narrow">
+      <PublicPageIntro title="Condições de locação e privacidade" />
       {site ? (
         <>
           <p className="mt-5 text-sm">Versão de aceite: {site.terms_version}</p>

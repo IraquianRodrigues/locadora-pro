@@ -1,4 +1,5 @@
 import { getSite } from "@/lib/public/catalog";
+import { PublicPageIntro } from "@/components/public/page-intro";
 export const dynamic = "force-dynamic";
 export default async function Contact() {
   let site;
@@ -8,8 +9,8 @@ export default async function Contact() {
     site = null;
   }
   return (
-    <main id="conteudo" className="mx-auto max-w-4xl px-5 py-12">
-      <h1 className="text-3xl font-bold">Contato e atendimento</h1>
+    <main id="conteudo" className="public-page public-page-narrow">
+      <PublicPageIntro title="Contato e atendimento" />
       {site ? (
         <section className="mt-7 space-y-5 rounded-xl border border-border p-6">
           <h2 className="text-xl font-bold">{site.name}</h2>

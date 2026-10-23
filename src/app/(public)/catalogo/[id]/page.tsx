@@ -3,6 +3,8 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { getCatalog } from "@/lib/public/catalog";
+import { InteractiveHoverLink } from "@/components/magicui/interactive-hover-button";
+import { PublicPageIntro } from "@/components/public/page-intro";
 export const dynamic = "force-dynamic";
 export default async function VehiclePage({
   params,
@@ -16,10 +18,8 @@ export default async function VehiclePage({
     result = await getCatalog({}, id);
   } catch {
     return (
-      <main id="conteudo" className="mx-auto max-w-4xl px-5 py-12">
-        <h1 className="text-3xl font-bold">
-          Veículo indisponível para consulta
-        </h1>
+      <main id="conteudo" className="public-page public-page-narrow">
+        <PublicPageIntro title="Veículo indisponível para consulta" />
         <Link className="mt-5 inline-block underline" href="/catalogo">
           Voltar ao catálogo
         </Link>
@@ -29,7 +29,7 @@ export default async function VehiclePage({
   const v = result.data[0];
   if (!v) notFound();
   return (
-    <main id="conteudo" className="mx-auto max-w-4xl px-5 py-12">
+    <main id="conteudo" className="public-page public-page-narrow">
       <Link href="/catalogo" className="underline">
         Voltar ao catálogo
       </Link>
@@ -73,12 +73,9 @@ export default async function VehiclePage({
           ))}
         </ul>
       )}
-      <Link
-        className="inline-flex min-h-11 items-center rounded-lg bg-primary px-5 text-white"
-        href={`/reservar?veiculo=${v.id}`}
-      >
+      <InteractiveHoverLink href={`/reservar?veiculo=${v.id}`}>
         Calcular cotação
-      </Link>
+      </InteractiveHoverLink>
       <p className="mt-4 text-sm">
         A consulta não garante disponibilidade. Sua solicitação será analisada
         antes da confirmação.

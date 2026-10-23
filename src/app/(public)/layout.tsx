@@ -1,6 +1,7 @@
 import { PublicHeader } from "@/components/layout/public-header";
-import Link from "next/link";
 import { getSite } from "@/lib/public/catalog";
+import { PublicFooter } from "@/components/public/public-footer";
+import "@/components/public/public-site.css";
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
   try {
@@ -31,18 +32,10 @@ export default async function PublicLayout({
     site = null;
   }
   return (
-    <>
+    <div className="public-site">
       <PublicHeader />
       {children}
-      <footer className="public-footer">
-        <div className="public-footer-inner">
-          <p>{site?.name ?? "Apex"} · Locação de veículos</p>
-          <Link className="underline" href="/politicas">
-            Condições e privacidade
-          </Link>
-          {!site && <p>Atendimento online em preparação</p>}
-        </div>
-      </footer>
-    </>
+      <PublicFooter name={site?.name} published={Boolean(site)} />
+    </div>
   );
 }

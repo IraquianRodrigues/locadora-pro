@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { bookingOptions } from "@/lib/public/catalog";
+import { PublicPageIntro } from "@/components/public/page-intro";
 export const dynamic = "force-dynamic";
 export default async function Categories() {
   let rows: Awaited<ReturnType<typeof bookingOptions>>["categories"];
@@ -9,12 +10,11 @@ export default async function Categories() {
     rows = [];
   }
   return (
-    <main id="conteudo" className="mx-auto max-w-6xl px-5 py-12">
-      <h1 className="text-3xl font-bold">Categorias</h1>
-      <p className="mt-4">
+    <main id="conteudo" className="public-page">
+      <PublicPageIntro title="Categorias">
         Na reserva por categoria, a equipe atribui um veículo disponível durante
         a aprovação.
-      </p>
+      </PublicPageIntro>
       {!rows.length ? (
         <p className="mt-6" role="status">
           Categorias indisponíveis ou ainda não publicadas.

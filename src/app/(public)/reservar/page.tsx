@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PublicBooking } from "@/components/public/booking";
+import { PublicPageIntro } from "@/components/public/page-intro";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Solicitar reserva",
@@ -13,12 +14,11 @@ export default async function BookingPage({
   const raw = (await searchParams).veiculo,
     id = z.uuid().safeParse(raw);
   return (
-    <main id="conteudo" className="mx-auto max-w-4xl px-5 py-12">
-      <h1 className="text-3xl font-bold">Cotação e solicitação de reserva</h1>
-      <p className="my-5">
+    <main id="conteudo" className="public-page public-page-narrow">
+      <PublicPageIntro title="Cotação e solicitação de reserva">
         Confira as condições e envie sua solicitação. A reserva depende de
         análise e confirmação da equipe; o pagamento será na retirada.
-      </p>
+      </PublicPageIntro>
       <PublicBooking vehicleId={id.success ? id.data : undefined} />
     </main>
   );

@@ -4,11 +4,10 @@ import { useRef } from "react";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, Menu } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
-import { Button } from "@/components/ui/button";
+import { InteractiveHoverLink } from "@/components/magicui/interactive-hover-button";
 const links = [
   { href: "/catalogo", label: "Catálogo" },
   { href: "/categorias", label: "Categorias" },
-  { href: "/reservar", label: "Solicitar reserva" },
   { href: "/consultar-reserva", label: "Consultar solicitação" },
   { href: "/contato", label: "Contato" },
 ];
@@ -30,11 +29,12 @@ export function PublicHeader() {
             {item.label}
           </Link>
         ))}
-        <Button asChild variant="outline" size="sm">
-          <Link href="/login">
-            Área da equipe <ArrowUpRight aria-hidden="true" />
-          </Link>
-        </Button>
+        <Link href="/login" className="public-team-link">
+          Área da equipe <ArrowUpRight aria-hidden="true" />
+        </Link>
+        <InteractiveHoverLink href="/reservar" className="public-nav-reserve">
+          Solicitar reserva
+        </InteractiveHoverLink>
       </>
     );
   }

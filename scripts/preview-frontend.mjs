@@ -24,6 +24,10 @@ const aliases = [
   { find: "@", replacement: resolve(root, "src") },
   { find: "next/link", replacement: resolve(root, "scripts/preview/link.tsx") },
   {
+    find: "next/image",
+    replacement: resolve(root, "scripts/preview/image.tsx"),
+  },
+  {
     find: "next/navigation",
     replacement: resolve(root, "scripts/preview/navigation.ts"),
   },
@@ -57,10 +61,13 @@ const { renderDesignPreview } = await import(
   pathToFileURL(resolve(root, ".impeccable/preview/frontend.js"))
 );
 const css = await postcss([tailwind({ base: root })]).process(
-  await readFile("src/app/globals.css", "utf8"),
+  (await readFile("src/app/globals.css", "utf8")) +
+    "\n" +
+    (await readFile("src/components/public/public-site.css", "utf8")),
   { from: resolve(root, "src/app/globals.css") },
 );
 const font = await readFile("assets/fonts/Manrope-Variable.ttf");
+const brandImage = await readFile("public/brand/apex-metallic.png");
 const client = await readFile(".impeccable/preview/client/preview.js");
 const server = createHttpServer((req, res) => {
   if (!["GET", "HEAD"].includes(req.method)) {
@@ -74,6 +81,9 @@ const server = createHttpServer((req, res) => {
   if (url.pathname === "/style.css") {
     res.setHeader("Content-Type", "text/css; charset=utf-8");
     res.end(css.css);
+  } else if (url.pathname === "/brand/apex-metallic.png") {
+    res.setHeader("Content-Type", "image/png");
+    res.end(brandImage);
   } else if (url.pathname === "/font.ttf") {
     res.setHeader("Content-Type", "font/ttf");
     res.end(font);
@@ -82,6 +92,7 @@ const server = createHttpServer((req, res) => {
     res.end(client);
   } else if (
     url.pathname === "/" ||
+    url.pathname === "/publico" ||
     /^\/admin\/(dashboard|frota|clientes|condutores|reservas|locacoes|financeiro|manutencao|relatorios|notificacoes|usuarios|site|categorias|unidades|planos|precos|adicionais)(\/[^/]+)?$/.test(
       url.pathname,
     )

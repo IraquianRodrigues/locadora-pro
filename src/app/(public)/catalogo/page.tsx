@@ -3,6 +3,7 @@ import { getCatalog, bookingOptions } from "@/lib/public/catalog";
 import { catalogFilters } from "@/lib/public/schema";
 import { CatalogCards } from "@/components/public/catalog-cards";
 import { Button } from "@/components/ui/button";
+import { PublicPageIntro } from "@/components/public/page-intro";
 export const dynamic = "force-dynamic";
 export default async function CatalogPage({
   searchParams,
@@ -12,8 +13,8 @@ export default async function CatalogPage({
   const parsed = catalogFilters.safeParse(await searchParams);
   if (!parsed.success)
     return (
-      <main id="conteudo" className="mx-auto max-w-6xl px-5 py-12">
-        <h1 className="text-3xl font-bold">Catálogo</h1>
+      <main id="conteudo" className="public-page">
+        <PublicPageIntro title="Catálogo" />
         <p role="alert" className="mt-5">
           Filtros inválidos.
         </p>
@@ -30,8 +31,8 @@ export default async function CatalogPage({
     ]);
   } catch {
     return (
-      <main id="conteudo" className="mx-auto max-w-6xl px-5 py-12">
-        <h1 className="text-3xl font-bold">Catálogo</h1>
+      <main id="conteudo" className="public-page">
+        <PublicPageIntro title="Catálogo" />
         <p role="status" className="mt-6">
           Catálogo temporariamente indisponível ou em preparação. Tente
           novamente mais tarde.
@@ -53,24 +54,15 @@ export default async function CatalogPage({
         page: String(p),
       })}`;
   return (
-    <main id="conteudo" className="mx-auto max-w-6xl px-5 py-12">
-      <h1 className="text-3xl font-bold">Catálogo de veículos</h1>
-      <p className="mt-4">
+    <main id="conteudo" className="public-page">
+      <PublicPageIntro title="Catálogo de veículos">
         Escolha por categoria ou um veículo específico. O valor depende do
         período e das condições da cotação.
-      </p>
-      <form
-        method="get"
-        className="my-8 flex flex-wrap items-end gap-4 rounded-xl border border-border p-5"
-      >
+      </PublicPageIntro>
+      <form method="get" className="public-filter-form">
         <label>
           Marca ou modelo
-          <input
-            name="q"
-            maxLength={100}
-            defaultValue={f.q}
-            className="mt-2 block min-h-11 rounded border border-border px-3"
-          />
+          <input name="q" maxLength={100} defaultValue={f.q} />
         </label>
         {[
           ["category", "Categoria", options.categories],
@@ -83,7 +75,6 @@ export default async function CatalogPage({
               defaultValue={
                 name === "category" ? (f.category ?? "") : (f.branch ?? "")
               }
-              className="mt-2 block min-h-11 max-w-full rounded border border-border bg-white px-3"
             >
               <option value="">Todas</option>
               {(rows as { id: string; name: string }[]).map((r) => (

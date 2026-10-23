@@ -1,16 +1,16 @@
 import { StatusForm } from "@/components/public/status-form";
+import { PublicPageIntro } from "@/components/public/page-intro";
 export const metadata = {
   title: "Consultar solicitação",
   robots: { index: false, follow: false },
 };
 export default function Consult() {
   return (
-    <main id="conteudo" className="mx-auto max-w-2xl px-5 py-12">
-      <h1 className="text-3xl font-bold">Consultar solicitação</h1>
-      <p className="mt-5">
+    <main id="conteudo" className="public-page public-page-narrow">
+      <PublicPageIntro title="Consultar solicitação">
         Informe a referência e o token recebidos ao solicitar. A consulta mostra
         somente a situação; para outras informações, procure o atendimento.
-      </p>
+      </PublicPageIntro>
       <StatusForm />
     </main>
   );
